@@ -22,7 +22,9 @@ The task is episodic, and in order to solve the environment, your agent must get
 
 ### Getting Started
 
-1. Create (and activate) a new environment with Python 3.6.
+0. If not available, download and install Anaconda Python via the [miniconda installer](https://docs.conda.io/en/latest/miniconda.html) which includes the `conda` environment management tool.
+
+1. Create (and activate) a new conda environment with Python 3.6.
 
 - __Linux__ or __Mac__:
 ```bash
@@ -42,12 +44,15 @@ cd deep-reinforcement-learning/python
 pip install .
 ```
 
-2. Create an [IPython kernel](http://ipython.readthedocs.io/en/stable/install/kernel_install.html) for the `drlnd` environment.
+The `python` directory above includes a `requirements.txt` file which is the list of additional Python packages upon which this project depends, as well as a `setup.py` file which describes how `pip` should install the package. By running `pip install` in this directory as indicated in the commands above, `pip` will automatically install into the current environment any dependent Python packages that are missing.
+
+3. Create an [IPython kernel](http://ipython.readthedocs.io/en/stable/install/kernel_install.html) for the `drlnd` environment.
 ```bash
 python -m ipykernel install --user --name drlnd --display-name "drlnd"
 ```
 
-3. Download the environment from one of the links below.  You need only select the environment that matches your operating system:
+
+4. Download the environment from one of the links below.  You need only select the environment that matches your operating system:
     - Linux: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P1/Banana/Banana_Linux.zip)
     - Mac OSX: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P1/Banana/Banana.app.zip)
     - Windows (32-bit): [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P1/Banana/Banana_Windows_x86.zip)
@@ -55,7 +60,7 @@ python -m ipykernel install --user --name drlnd --display-name "drlnd"
     
     (_For Windows users_) Check out [this link](https://support.microsoft.com/en-us/help/827218/how-to-determine-whether-a-computer-is-running-a-32-bit-version-or-64) if you need help with determining if your computer is running a 32-bit version or 64-bit version of the Windows operating system.
 
-4. Place the file in the deep-reinforcement-learning GitHub repository, in the `p1_navigation/` folder, and unzip (or decompress) the file. 
+5. Place the file in the deep-reinforcement-learning GitHub repository, in the `p1_navigation/` folder, and unzip (or decompress) the file. 
 
 
 6. Before running code in a notebook, change the kernel to match the `drlnd` environment by using the drop-do
