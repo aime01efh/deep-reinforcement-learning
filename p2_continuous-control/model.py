@@ -16,4 +16,7 @@ class Policy(nn.Module):
         means = self.means(x).squeeze(0)
         # exp because std_devs must be nonnegative
         std_devs = torch.exp(self.std_devs(x)).squeeze(0)
-        return torch.cat([means, std_devs])
+        action_params = torch.cat([means, std_devs])
+        if torch.isnan(action_params).any():
+            print('Oops in Policy')
+        return action_params

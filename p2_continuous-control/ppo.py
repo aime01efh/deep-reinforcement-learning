@@ -65,6 +65,9 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
         mean_rewards_per_episode.append(avg_episode_reward_per_agent)
         scores_window.append(avg_episode_reward_per_agent)
 
+        if abs(np.mean(avg_episode_reward_per_agent)) < 1e-6:
+            print('Score is 0')
+
         # display some progress every 20 iterations
         if (episode_idx + 1) % report_every == 0:
             print("Episode: {0:d}, score: {1:f}, window mean: {2:f}"
@@ -102,7 +105,7 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
     # "rewards" is now future rewards, normalized, as torch tensor
 
     # convert states to policy (or probability)
-    new_probs = agent.states_actions_to_prob(states, actions)
+    new_probs, action_prob_dists = agent.states_actions_to_prob(states, actions)
 
     ratio = new_probs / old_probs
     clipped_ratio = torch.clamp(ratio, 1-epsilon, 1+epsilon)
@@ -112,10 +115,14 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
     # this steers new_policy towards 0.5
     # prevents policy to become exactly 0 or 1 helps exploration
     # add in 1.e-10 to avoid log(0) which gives nan
-    entropy = (-(new_probs*torch.log(old_probs+1.e-10)
-               + (1.0-new_probs)*torch.log(1.0-old_probs+1.e-10)))
+    # this entropy is for binary action
+    # entropy = (-(new_probs*torch.log(old_probs+1.e-10)
+    #            + (1.0-new_probs)*torch.log(1.0-old_probs+1.e-10)))
+    entropy = action_prob_dists.entropy().mean()
 
     # take 1/T * sigma(...)
     if torch.isnan(clipped_surrogate_val).any():
-        print("Oops in L")
+        print("Oops in L-1")
+    if torch.isnan(beta*entropy).any():
+        print("Oops in L-2")
     return torch.mean(clipped_surrogate_val + beta*entropy)

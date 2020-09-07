@@ -13,4 +13,4 @@ agent = ppo_agent.Agent(state_size=len(env_info.vector_observations[0]),
                         action_size=brain.vector_action_space_size,
                         seed=237)
 
-mean_rewards = ppo.train_ppo(env, agent)
+mean_rewards = ppo.train_ppo(env, agent, report_every=1)
