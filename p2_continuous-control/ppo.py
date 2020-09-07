@@ -49,6 +49,7 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
         for _ in range(sgd_epoch):
             L = -clipped_surrogate(agent, prob_list, states, actions, rewards,
                                    epsilon=epsilon, beta=beta)
+
             optimizer.zero_grad()
             L.backward()
             optimizer.step()
@@ -66,9 +67,10 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
 
         # display some progress every 20 iterations
         if (episode_idx + 1) % report_every == 0:
-            print("Episode: {0:d}, score: {1:f}"
-                  .format(episode_idx+1, np.mean(avg_episode_reward_per_agent)))
-        
+            print("Episode: {0:d}, score: {1:f}, window mean: {2:f}"
+                  .format(episode_idx+1, np.mean(avg_episode_reward_per_agent),
+                          np.mean(scores_window)))
+
         if np.mean(scores_window) >= score_goal:
             print('\nEnvironment solved in {:d} episodes!\t'
                   'Average Score: {:.2f}'
@@ -104,7 +106,7 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
 
     ratio = new_probs / old_probs
     clipped_ratio = torch.clamp(ratio, 1-epsilon, 1+epsilon)
-    clipped_surrogate = torch.min(ratio*rewards, clipped_ratio*rewards)
+    clipped_surrogate_val = torch.min(ratio*rewards, clipped_ratio*rewards)
 
     # include a regularization term
     # this steers new_policy towards 0.5
@@ -114,4 +116,6 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
                + (1.0-new_probs)*torch.log(1.0-old_probs+1.e-10)))
 
     # take 1/T * sigma(...)
-    return torch.mean(clipped_surrogate + beta*entropy)
+    if torch.isnan(clipped_surrogate_val).any():
+        print("Oops in L")
+    return torch.mean(clipped_surrogate_val + beta*entropy)

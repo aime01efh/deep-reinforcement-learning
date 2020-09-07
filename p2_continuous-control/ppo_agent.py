@@ -1,5 +1,6 @@
 import torch
-import numpy as np
+
+# import numpy as np
 import random
 import model
 from utils import device
@@ -8,6 +9,9 @@ from utils import device
 
 MIN_ACTION = -1.0
 MAX_ACTION = 1.0
+
+# To avoid numerical problems when action is very unlikely in the new policy
+MIN_ACTION_PROB = torch.FloatTensor([1e-6])
 
 
 class Agent():
@@ -47,6 +51,10 @@ class Agent():
         dist = torch.distributions.Normal(means, std_devs)
         return dist
 
+    def _actions_to_log_prob(self, dists, actions):
+        log_probs = torch.sum(dists.log_prob(actions), dim=1)
+        return log_probs
+
     def act(self, state):  # TODO train=True?
         """Returns actions and probability for given state per current policy
 
@@ -63,12 +71,12 @@ class Agent():
         dists = self._action_params_to_normals(action_params)
         actions = torch.clamp(dists.sample(), MIN_ACTION, MAX_ACTION)
         # Sum log_prob of actions within each individual agent
-        log_prob = torch.sum(dists.log_prob(actions), dim=1)
+        log_prob = self._actions_to_log_prob(dists, actions)
 
         # return (actions.squeeze().cpu().detach().numpy(),
         #         np.exp(log_prob.squeeze().cpu().detach().numpy()))
         return (actions.squeeze().cpu().detach().numpy(),
-                torch.exp(log_prob.squeeze()))
+                torch.min(torch.exp(log_prob.squeeze()), MIN_ACTION_PROB))
 
     def states_actions_to_prob(self, states, actions):
         """convert states to probability, passing through the policy
@@ -77,12 +85,12 @@ class Agent():
         action_params = self.policy(states)
         dists = self._action_params_to_normals(action_params)
         # Sum log_prob of actions within each individual agent
-        log_prob = torch.sum(dists.log_prob(actions), dim=1)
+        log_prob = self._actions_to_log_prob(dists, actions)
 
-        return torch.exp(log_prob.squeeze())
+        return torch.min(torch.exp(log_prob.squeeze()), MIN_ACTION_PROB)
 
     def save(self, filename):
         torch.save(self.policy.state_dict(), filename)
-    
+
     def load(self, filename):
         self.policy.load_state_dict(torch.load(filename))
