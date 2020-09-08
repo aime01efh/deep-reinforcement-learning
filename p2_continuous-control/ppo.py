@@ -38,14 +38,14 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
         range_iter = tqdm(range_iter)
 
     for episode_idx in range_iter:
-        # collect trajectories
+        # Gather trajectories from all parallel agents
         prob_list, states, actions, rewards = \
             utils.collect_trajectories(env, agent, tmax=tmax)
 
         total_episode_rewards = np.sum(rewards)
         avg_episode_reward_per_agent = total_episode_rewards / num_agents
 
-        # gradient ascent step
+        # Optimize policy weights via gradient ascent
         for _ in range(sgd_epoch):
             L = -clipped_surrogate(agent, prob_list, states, actions, rewards,
                                    epsilon=epsilon, beta=beta)
@@ -85,6 +85,8 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
 
 def clipped_surrogate(agent, old_probs, states, actions, rewards,
                       discount=0.995, epsilon=0.1, beta=0.01):
+    """Return the PPO surrogate loss function using a Monte Carlo policy gradient
+    """
     discount = discount**np.arange(len(rewards))
     rewards = np.asarray(rewards)*discount[:, np.newaxis]
 
@@ -104,7 +106,7 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
                            device=utils.device)
     # "rewards" is now future rewards, normalized, as torch tensor
 
-    # convert states to policy (or probability)
+    # Get probabilities of the sampled actions in the current policy
     new_probs, action_prob_dists = agent.states_actions_to_prob(states, actions)
 
     ratio = new_probs / old_probs
@@ -112,12 +114,9 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
     clipped_surrogate_val = torch.min(ratio*rewards, clipped_ratio*rewards)
 
     # include a regularization term
-    # this steers new_policy towards 0.5
-    # prevents policy to become exactly 0 or 1 helps exploration
-    # add in 1.e-10 to avoid log(0) which gives nan
-    # this entropy is for binary action
-    # entropy = (-(new_probs*torch.log(old_probs+1.e-10)
-    #            + (1.0-new_probs)*torch.log(1.0-old_probs+1.e-10)))
+    # this entropy is for binary action:
+    #   entropy = (-(new_probs*torch.log(old_probs+1.e-10)
+    #              + (1.0-new_probs)*torch.log(1.0-old_probs+1.e-10)))
     entropy = action_prob_dists.entropy().mean()
 
     # take 1/T * sigma(...)
