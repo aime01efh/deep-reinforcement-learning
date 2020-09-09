@@ -6,19 +6,19 @@ from tqdm import tqdm
 import utils
 
 
-NUM_EPISODES = 500
+NUM_EPISODES = 1000
 DISCOUNT_RATE = .99
 EPSILON = 0.1
 BETA = .01
 TMAX = 320
 # SDG_epoch is number of times to reuse trajectories; 1=REINFORCE
-SGD_EPOCH = 4
-LEARN_RATE = 1e-4
+SGD_EPOCH = 8
+LEARN_RATE = 1e-3
 
 
 def train_ppo(env, agent, num_episodes=NUM_EPISODES,
               epsilon=EPSILON, discount_rate=DISCOUNT_RATE,
-              beta=BETA, tmax=TMAX, sgd_epoch=SGD_EPOCH,
+              beta=BETA, tmax=TMAX, num_sgd_epoch=SGD_EPOCH,
               learn_rate=LEARN_RATE, report_every=20,
               score_goal=30.0, progressbar=True):
     """Train a PPO agent. Return a list of rewards
@@ -46,10 +46,11 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
         avg_episode_reward_per_agent = total_episode_rewards / num_agents
 
         # Optimize policy weights via gradient ascent
-        for _ in range(sgd_epoch):
+        for _ in range(num_sgd_epoch):
             L = -clipped_surrogate(agent, prob_list, states, actions, rewards,
                                    epsilon=epsilon, beta=beta)
 
+            print('L =', L.detach().numpy())
             optimizer.zero_grad()
             L.backward()
             optimizer.step()
@@ -88,30 +89,33 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
     """Return the PPO surrogate loss function using a Monte Carlo policy gradient
     """
     discount = discount**np.arange(len(rewards))
-    rewards = np.asarray(rewards)*discount[:, np.newaxis]
+    rewards_np = np.asarray(rewards) * discount[:, np.newaxis]
 
     # convert rewards to future rewards
-    rewards_future = rewards[::-1].cumsum(axis=0)[::-1]
+    rewards_future = rewards_np[::-1].cumsum(axis=0)[::-1]
 
     mean = np.mean(rewards_future, axis=1)
-    std = np.std(rewards_future, axis=1) + 1.0e-10
+    std_dev = np.std(rewards_future, axis=1) + 1.0e-10
 
     # batch normalization of rewards, accelerates training
-    rewards_normalized = (rewards_future - mean[:, np.newaxis])/std[:, np.newaxis]
+    rewards_normalized = ((rewards_future - mean[:, np.newaxis])
+                          / std_dev[:, np.newaxis])
 
     actions = torch.tensor(actions, dtype=torch.float, device=utils.device)
     old_probs = torch.tensor(old_probs, dtype=torch.float, device=utils.device)
 
-    rewards = torch.tensor(rewards_normalized, dtype=torch.float,
-                           device=utils.device)
+    rewards_t = torch.tensor(rewards_normalized, dtype=torch.float,
+                             device=utils.device)
     # "rewards" is now future rewards, normalized, as torch tensor
 
     # Get probabilities of the sampled actions in the current policy
     new_probs, action_prob_dists = agent.states_actions_to_prob(states, actions)
 
     ratio = new_probs / old_probs
+    if torch.isnan(ratio).any():
+        print('Oops in ratio')
     clipped_ratio = torch.clamp(ratio, 1-epsilon, 1+epsilon)
-    clipped_surrogate_val = torch.min(ratio*rewards, clipped_ratio*rewards)
+    clipped_surrogate_val = torch.min(ratio * rewards_t, clipped_ratio * rewards_t)
 
     # include a regularization term
     # this entropy is for binary action:
@@ -120,8 +124,11 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
     entropy = action_prob_dists.entropy().mean()
 
     # take 1/T * sigma(...)
-    if torch.isnan(clipped_surrogate_val).any():
-        print("Oops in L-1")
-    if torch.isnan(beta*entropy).any():
-        print("Oops in L-2")
+    if (
+        torch.isnan(clipped_surrogate_val).any()
+        or torch.isnan(beta * entropy).any()
+        or utils.torch_isinf_any(clipped_surrogate_val)
+        or utils.torch_isinf_any(beta * entropy)
+    ):
+        print("Oops in L")
     return torch.mean(clipped_surrogate_val + beta*entropy)

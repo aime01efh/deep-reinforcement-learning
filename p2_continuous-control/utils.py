@@ -42,3 +42,11 @@ def collect_trajectories(env, agent, tmax=200, nrand=5):
 
     # return pi_theta, states, actions, rewards, probability
     return prob_list, state_list, action_list, reward_list
+
+
+def torch_isinf_any(x):
+    """Return True if any element of x is inf or -inf.
+    Adapted from https://github.com/pytorch/pytorch/issues/9132
+    because the version of torch I'm using doesn't have torch.isinf() yet.
+    """
+    return x.eq(float('inf')).any() or x.eq(float('-inf')).any()

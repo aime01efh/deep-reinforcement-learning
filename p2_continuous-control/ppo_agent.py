@@ -52,9 +52,9 @@ class Agent():
         return dist
 
     def _actions_to_log_prob(self, dists, actions):
-        """From actions that have been sampled from the Normal distributions
+        """Given actions that have been sampled from the Normal distributions
         created by _action_params_to_normals, return the log of the
-        probability densities of those actions, summed across the action space
+        probability densities of those actions, summed across the set of actions
         of each parallel agent
         """
         # Remember that log_prob returns probability densities which can be > 1
@@ -66,7 +66,8 @@ class Agent():
         """Return sampled actions and their probability for the given state
         per current policy
         """
-        # Run the state through the policy to get Normal stats for each action
+        # Run the state through the policy to get the means and and std_devs
+        # of Normal distributions to be sampled for each action
         state = torch.from_numpy(state).float().unsqueeze(0).to(device)
         self.policy.eval()
         with torch.no_grad():
@@ -75,7 +76,7 @@ class Agent():
         # Create Normal distributions, sample actions, get log probabilities
         dists = self._action_params_to_normals(action_params)
         actions = torch.clamp(dists.sample(), MIN_ACTION, MAX_ACTION)
-        # Sum log_prob of actions within each individual agent
+        # Get the sum log_prob of actions within each individual agent
         log_prob = self._actions_to_log_prob(dists, actions)
 
         actions_np = actions.squeeze().cpu().detach().numpy()
@@ -93,7 +94,8 @@ class Agent():
         # Sum log_prob of actions within each individual agent
         log_prob = self._actions_to_log_prob(dists, actions)
 
-        return torch.max(torch.exp(log_prob.squeeze()), MIN_ACTION_PROB), dists
+        prob_clipped = torch.max(torch.exp(log_prob.squeeze()), MIN_ACTION_PROB)
+        return prob_clipped, dists
 
     def save(self, filename):
         torch.save(self.policy.state_dict(), filename)
