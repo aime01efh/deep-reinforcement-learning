@@ -59,7 +59,7 @@ class Agent():
         """
         # Remember that log_prob returns probability densities which can be > 1
         log_probs_2d = dists.log_prob(actions)
-        log_probs = torch.sum(log_probs_2d, dim=1)
+        log_probs = torch.sum(log_probs_2d, dim=-1)
         return log_probs
 
     def act(self, state):
@@ -83,13 +83,12 @@ class Agent():
         action_probs = torch.max(torch.exp(log_prob.squeeze()), MIN_ACTION_PROB)
         return (actions_np, action_probs)
 
-    def states_actions_to_prob(self, state, actions, train=True):
+    def states_actions_to_prob(self, states, actions, train=True):
         """Return probability density of the given sampled action in the
         current policy, as well as the Normal distributions of the policy
         """
         self.policy.train(train)
-        state = torch.tensor(state, dtype=torch.float, device=device)
-        action_params = self.policy(state)
+        action_params = self.policy(states)
         dists = self._action_params_to_normals(action_params)
         # Sum log_prob of actions within each individual agent
         log_prob = self._actions_to_log_prob(dists, actions)

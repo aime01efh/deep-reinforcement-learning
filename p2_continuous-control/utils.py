@@ -12,7 +12,7 @@ def collect_trajectories(env, agent, tmax=200, nrand=5):
     # number of parallel instances
     brain_name = env.brain_names[0]
     env_info = env.reset(train_mode=True)[brain_name]
-    num_agents = len(env_info.agents)
+    # num_agents = len(env_info.agents)
 
     # initialize returning lists and start the game!
     state_list = []
@@ -28,12 +28,12 @@ def collect_trajectories(env, agent, tmax=200, nrand=5):
         env_info = env.step(action)[brain_name]
 
         # Append each trajectory step to the output lists for all agents
-        for agent_idx in range(num_agents):
-            # store the result
-            state_list.append(state[agent_idx])
-            reward_list.append(env_info.rewards[agent_idx])
-            prob_list.append(action_prob[agent_idx])
-            action_list.append(action[agent_idx])
+
+        # store the result
+        state_list.append(state)
+        reward_list.append(env_info.rewards)
+        prob_list.append(action_prob)
+        action_list.append(action)
 
         # stop if any of the trajectories is done
         # we want all the lists to be rectangular

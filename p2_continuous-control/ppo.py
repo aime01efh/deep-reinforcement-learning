@@ -6,14 +6,14 @@ from tqdm import tqdm
 import utils
 
 
-NUM_EPISODES = 1000
+NUM_EPISODES = 5000
 DISCOUNT_RATE = .99
 EPSILON = 0.1
 BETA = .01
 TMAX = 320
 # SDG_epoch is number of times to reuse trajectories; 1=REINFORCE
-SGD_EPOCH = 8
-LEARN_RATE = 1e-3
+SGD_EPOCH = 6
+LEARN_RATE = 1e-5
 
 
 def train_ppo(env, agent, num_episodes=NUM_EPISODES,
@@ -29,9 +29,9 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
 
     optimizer = optim.Adam(agent.parameters, lr=learn_rate)
     mean_rewards_per_episode = []
-    brain_name = env.brain_names[0]
-    env_info = env.reset(train_mode=True)[brain_name]
-    num_agents = len(env_info.agents)
+    # brain_name = env.brain_names[0]
+    # env_info = env.reset(train_mode=True)[brain_name]
+    # num_agents = len(env_info.agents)
 
     range_iter = range(num_episodes)
     if progressbar:
@@ -42,15 +42,16 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
         prob_list, states, actions, rewards = \
             utils.collect_trajectories(env, agent, tmax=tmax)
 
-        total_episode_rewards = np.sum(rewards)
-        avg_episode_reward_per_agent = total_episode_rewards / num_agents
+        # Sum all rewards in the episode for each individual agent,
+        # then average this per-agent total reward across all agents
+        avg_episode_reward = np.array(rewards).sum(axis=0).mean()
 
         # Optimize policy weights via gradient ascent
         for _ in range(num_sgd_epoch):
             L = -clipped_surrogate(agent, prob_list, states, actions, rewards,
                                    epsilon=epsilon, beta=beta)
 
-            print('L =', L.detach().numpy())
+            # print('L =', L.detach().numpy())
             optimizer.zero_grad()
             L.backward()
             optimizer.step()
@@ -63,16 +64,16 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
         beta *= 0.995
 
         # save the average reward of the parallel environments for this episode
-        mean_rewards_per_episode.append(avg_episode_reward_per_agent)
-        scores_window.append(avg_episode_reward_per_agent)
+        mean_rewards_per_episode.append(avg_episode_reward)
+        scores_window.append(avg_episode_reward)
 
-        if abs(np.mean(avg_episode_reward_per_agent)) < 1e-6:
+        if abs(np.mean(avg_episode_reward)) < 1e-6:
             print('Score is 0')
 
         # display some progress every 20 iterations
         if (episode_idx + 1) % report_every == 0:
             print("Episode: {0:d}, score: {1:f}, window mean: {2:f}"
-                  .format(episode_idx+1, np.mean(avg_episode_reward_per_agent),
+                  .format(episode_idx+1, avg_episode_reward,
                           np.mean(scores_window)))
 
         if np.mean(scores_window) >= score_goal:
@@ -101,17 +102,18 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
     rewards_normalized = ((rewards_future - mean[:, np.newaxis])
                           / std_dev[:, np.newaxis])
 
-    actions = torch.tensor(actions, dtype=torch.float, device=utils.device)
-    old_probs = torch.tensor(old_probs, dtype=torch.float, device=utils.device)
+    states_t = torch.tensor(states, dtype=torch.float, device=utils.device)
+    actions_t = torch.tensor(actions, dtype=torch.float, device=utils.device)
+    old_probs_t = torch.stack(old_probs, dim=0)
 
     rewards_t = torch.tensor(rewards_normalized, dtype=torch.float,
                              device=utils.device)
     # "rewards" is now future rewards, normalized, as torch tensor
 
     # Get probabilities of the sampled actions in the current policy
-    new_probs, action_prob_dists = agent.states_actions_to_prob(states, actions)
+    new_probs, action_prob_dists = agent.states_actions_to_prob(states_t, actions_t)
 
-    ratio = new_probs / old_probs
+    ratio = new_probs / old_probs_t
     if torch.isnan(ratio).any():
         print('Oops in ratio')
     clipped_ratio = torch.clamp(ratio, 1-epsilon, 1+epsilon)
