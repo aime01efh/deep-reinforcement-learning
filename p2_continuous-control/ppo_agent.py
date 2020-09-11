@@ -43,24 +43,34 @@ class Agent():
         and std_devs in the second half, return the corresponding
         Normal distributions
         """
-        num_agents = action_params.shape[0] // 2
-        means = action_params[:num_agents, :]
-        std_devs = action_params[num_agents:]
+        if len(action_params.shape) == 2:
+            means = action_params[:, :self.action_size]
+            std_devs = action_params[:, self.action_size:]
+        else:
+            means = action_params[:, :, :self.action_size]
+            std_devs = action_params[:, :, self.action_size:]
 
         # get normal distributions with these parameters
         dist = torch.distributions.Normal(means, std_devs)
         return dist
 
-    def _actions_to_log_prob(self, dists, actions):
+    def _actions_to_prob(self, dists, actions):
         """Given actions that have been sampled from the Normal distributions
-        created by _action_params_to_normals, return the log of the
-        probability densities of those actions, summed across the set of actions
+        created by _action_params_to_normals, return the probability densities
+        of those actions, multiplied across the set of actions
         of each parallel agent
         """
         # Remember that log_prob returns probability densities which can be > 1
         log_probs_2d = dists.log_prob(actions)
+
+        # Sum the actions on a per-agent basis, leaving a vector of summed
+        # log_probs for each agent; equivalent to multiplying action probabilities
         log_probs = torch.sum(log_probs_2d, dim=-1)
-        return log_probs
+
+        # Compute action probability densities from the log_probs
+        # but ensure minimum prob
+        action_probs = torch.max(torch.exp(log_probs.squeeze()), MIN_ACTION_PROB)
+        return action_probs
 
     def act(self, state):
         """Return sampled actions and their probability for the given state
@@ -76,11 +86,11 @@ class Agent():
         # Create Normal distributions, sample actions, get log probabilities
         dists = self._action_params_to_normals(action_params)
         actions = torch.clamp(dists.sample(), MIN_ACTION, MAX_ACTION)
-        # Get the sum log_prob of actions within each individual agent
-        log_prob = self._actions_to_log_prob(dists, actions)
-
         actions_np = actions.squeeze().cpu().detach().numpy()
-        action_probs = torch.max(torch.exp(log_prob.squeeze()), MIN_ACTION_PROB)
+
+        # Get the prob of the set of actions within each individual agent
+        action_probs = self._actions_to_prob(dists, actions)
+
         return (actions_np, action_probs)
 
     def states_actions_to_prob(self, states, actions, train=True):
@@ -90,11 +100,10 @@ class Agent():
         self.policy.train(train)
         action_params = self.policy(states)
         dists = self._action_params_to_normals(action_params)
-        # Sum log_prob of actions within each individual agent
-        log_prob = self._actions_to_log_prob(dists, actions)
 
-        prob_clipped = torch.max(torch.exp(log_prob.squeeze()), MIN_ACTION_PROB)
-        return prob_clipped, dists
+        # Get the prob of the set of actions within each individual agent
+        action_probs = self._actions_to_prob(dists, actions)
+        return action_probs, dists
 
     def save(self, filename):
         torch.save(self.policy.state_dict(), filename)

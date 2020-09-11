@@ -38,6 +38,7 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
 
     for episode_idx in range_iter:
         # Gather trajectories from all parallel agents
+        # 2D lists: trajectory steps going down, agent index across
         prob_list, states, actions, rewards = \
             utils.collect_trajectories(env, agent)
 
@@ -75,6 +76,7 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
                   .format(episode_idx+1, avg_episode_reward,
                           np.mean(scores_window)))
 
+        # See if we're good enough to stop
         if np.mean(scores_window) >= score_goal:
             print('\nEnvironment solved in {:d} episodes!\t'
                   'Average Score: {:.2f}'
@@ -97,7 +99,7 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
     mean = np.mean(rewards_future, axis=1)
     std_dev = np.std(rewards_future, axis=1) + 1.0e-10
 
-    # batch normalization of rewards, accelerates training
+    # batch normalization of rewards: accelerates training
     rewards_normalized = ((rewards_future - mean[:, np.newaxis])
                           / std_dev[:, np.newaxis])
 
@@ -107,7 +109,7 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
 
     rewards_t = torch.tensor(rewards_normalized, dtype=torch.float,
                              device=utils.device)
-    # "rewards" is now future rewards, normalized, as torch tensor
+    # "rewards_t" is future rewards, normalized, as torch tensor
 
     # Get probabilities of the sampled actions in the current policy
     new_probs, action_prob_dists = agent.states_actions_to_prob(states_t, actions_t)
@@ -116,12 +118,14 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
     if torch.isnan(ratio).any():
         print('Oops in ratio')
     clipped_ratio = torch.clamp(ratio, 1-epsilon, 1+epsilon)
+    # clip on the high side, but allow any movement to the low side
     clipped_surrogate_val = torch.min(ratio * rewards_t, clipped_ratio * rewards_t)
 
-    # include a regularization term
-    # this entropy is for binary action:
-    #   entropy = (-(new_probs*torch.log(old_probs+1.e-10)
-    #              + (1.0-new_probs)*torch.log(1.0-old_probs+1.e-10)))
+    # include a regularization term using entropy
+    #   this entropy is for binary action:
+    #     entropy = (-(new_probs*torch.log(old_probs+1.e-10)
+    #                + (1.0-new_probs)*torch.log(1.0-old_probs+1.e-10)))
+    #   but we need the entropy of the continuous distribution
     entropy = action_prob_dists.entropy().mean()
 
     # take 1/T * sigma(...)
