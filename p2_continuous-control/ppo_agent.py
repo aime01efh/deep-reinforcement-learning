@@ -43,6 +43,7 @@ class Agent():
         and std_devs in the second half, return the corresponding
         Normal distributions
         """
+        # Split the means and std_devs from the final tensor dimension
         if len(action_params.shape) == 2:
             means = action_params[:, :self.action_size]
             std_devs = action_params[:, self.action_size:]

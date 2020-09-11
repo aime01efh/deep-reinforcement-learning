@@ -125,8 +125,9 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
     #   this entropy is for binary action:
     #     entropy = (-(new_probs*torch.log(old_probs+1.e-10)
     #                + (1.0-new_probs)*torch.log(1.0-old_probs+1.e-10)))
-    #   but we need the entropy of the continuous distribution
-    entropy = action_prob_dists.entropy().mean()
+    #   but we need the entropy of the continuous distributions,
+    #   summed across all actions of the given agent
+    entropy = action_prob_dists.entropy().sum(dim=-1)
 
     # take 1/T * sigma(...)
     if (

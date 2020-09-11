@@ -28,8 +28,6 @@ def collect_trajectories(env, agent, nrand=5):
         env_info = env.step(action)[brain_name]
 
         # Append each trajectory step to the output lists for all agents
-
-        # store the result
         state_list.append(state)
         reward_list.append(env_info.rewards)
         prob_list.append(action_prob)
