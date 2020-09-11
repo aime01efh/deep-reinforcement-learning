@@ -22,13 +22,14 @@ class Policy(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         means = self.means_layer(x).squeeze(0)
+        means_clipped = torch.clamp(means, -1.0, 1.0)
 
         # exp because std_devs must be nonnegative - but clip to keep
         # it from getting too big
         std_devs = torch.exp(self.std_devs_layer(x)).squeeze(0)
-        std_devs_clipped = torch.clamp(std_devs, 0, 1)
+        std_devs_clipped = torch.clamp(std_devs, 0.0, 1.0)
 
-        action_params = torch.cat([means, std_devs_clipped], dim=-1)
+        action_params = torch.cat([means_clipped, std_devs_clipped], dim=-1)
         if torch.isnan(action_params).any() or utils.torch_isinf_any(action_params):
             print('Oops in Policy')
         return action_params
