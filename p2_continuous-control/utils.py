@@ -5,7 +5,7 @@ import numpy as np
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def collect_trajectories(env, agent, tmax=200, nrand=5):
+def collect_trajectories(env, agent, nrand=5):
     """Collect parallel trajectories for the independent agents
     and return lists of states, rewards, probs, and actions
     """
@@ -20,7 +20,7 @@ def collect_trajectories(env, agent, tmax=200, nrand=5):
     prob_list = []
     action_list = []
 
-    for t in range(tmax):
+    while True:
         state = env_info.vector_observations
         action, action_prob = agent.act(state)
 

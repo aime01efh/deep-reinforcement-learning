@@ -103,5 +103,6 @@ ENV/
 # mypy
 .mypy_cache/
 .vscode/
+Banana_Linux/
 Reacher_Linux_1agent/
 Reacher_Linux_20agents/

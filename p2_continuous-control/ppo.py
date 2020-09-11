@@ -6,19 +6,18 @@ from tqdm import tqdm
 import utils
 
 
-NUM_EPISODES = 5000
+NUM_EPISODES = 10000
 DISCOUNT_RATE = .99
 EPSILON = 0.1
 BETA = .01
-TMAX = 320
 # SDG_epoch is number of times to reuse trajectories; 1=REINFORCE
 SGD_EPOCH = 6
-LEARN_RATE = 1e-5
+LEARN_RATE = 1e-4
 
 
 def train_ppo(env, agent, num_episodes=NUM_EPISODES,
               epsilon=EPSILON, discount_rate=DISCOUNT_RATE,
-              beta=BETA, tmax=TMAX, num_sgd_epoch=SGD_EPOCH,
+              beta=BETA, num_sgd_epoch=SGD_EPOCH,
               learn_rate=LEARN_RATE, report_every=20,
               score_goal=30.0, progressbar=True):
     """Train a PPO agent. Return a list of rewards
@@ -40,7 +39,7 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
     for episode_idx in range_iter:
         # Gather trajectories from all parallel agents
         prob_list, states, actions, rewards = \
-            utils.collect_trajectories(env, agent, tmax=tmax)
+            utils.collect_trajectories(env, agent)
 
         # Sum all rewards in the episode for each individual agent,
         # then average this per-agent total reward across all agents
