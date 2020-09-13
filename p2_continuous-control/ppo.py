@@ -19,15 +19,22 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
               epsilon=EPSILON, discount_rate=DISCOUNT_RATE,
               beta=BETA, num_sgd_epoch=SGD_EPOCH,
               learn_rate=LEARN_RATE, report_every=20,
-              score_goal=30.0, progressbar=True):
+              score_goal=30.0, progressbar=True,
+              mean_rewards_per_episode=None):
     """Train a PPO agent. Return a list of rewards
     averaged across the parallel evironments.
+
+    If mean_rewards_per_episode is a list, it will be used as the list
+    to which to insert episode rewards, otherwise a new list will be created.
     """
+    if mean_rewards_per_episode is None:
+        mean_rewards_per_episode = []
+
     # last 100 scores
     scores_window = deque(maxlen=100)
 
     optimizer = optim.Adam(agent.parameters, lr=learn_rate)
-    mean_rewards_per_episode = []
+
     # brain_name = env.brain_names[0]
     # env_info = env.reset(train_mode=True)[brain_name]
     # num_agents = len(env_info.agents)
@@ -91,10 +98,10 @@ def clipped_surrogate(agent, old_probs, states, actions, rewards,
     """Return the PPO surrogate loss function using a Monte Carlo policy gradient
     """
     discount = discount**np.arange(len(rewards))
-    rewards_np = np.asarray(rewards) * discount[:, np.newaxis]
+    discounted_rewards_np = np.asarray(rewards) * discount[:, np.newaxis]
 
     # convert rewards to future rewards
-    rewards_future = rewards_np[::-1].cumsum(axis=0)[::-1]
+    rewards_future = discounted_rewards_np[::-1].cumsum(axis=0)[::-1]
 
     mean = np.mean(rewards_future, axis=1)
     std_dev = np.std(rewards_future, axis=1) + 1.0e-10
