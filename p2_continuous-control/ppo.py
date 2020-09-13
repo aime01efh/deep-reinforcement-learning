@@ -6,7 +6,7 @@ from tqdm import tqdm
 import utils
 
 
-NUM_EPISODES = 10000
+NUM_EPISODES = 5000
 DISCOUNT_RATE = .99
 EPSILON = 0.1
 BETA = .01
@@ -14,6 +14,7 @@ BETA = .01
 SGD_EPOCH = 3
 LEARN_RATE = 1e-3
 
+GOAL_WINDOW_LEN = 100
 
 def train_ppo(env, agent, num_episodes=NUM_EPISODES,
               epsilon=EPSILON, discount_rate=DISCOUNT_RATE,
@@ -31,7 +32,7 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
         mean_rewards_per_episode = []
 
     # last 100 scores
-    scores_window = deque(maxlen=100)
+    scores_window = deque(maxlen=GOAL_WINDOW_LEN)
 
     optimizer = optim.Adam(agent.parameters, lr=learn_rate)
 
@@ -87,7 +88,7 @@ def train_ppo(env, agent, num_episodes=NUM_EPISODES,
         if np.mean(scores_window) >= score_goal:
             print('\nEnvironment solved in {:d} episodes!\t'
                   'Average Score: {:.2f}'
-                  .format(episode_idx-100, np.mean(scores_window)))
+                  .format(episode_idx-GOAL_WINDOW_LEN, np.mean(scores_window)))
             break
 
     return mean_rewards_per_episode
