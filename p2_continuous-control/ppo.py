@@ -11,8 +11,8 @@ DISCOUNT_RATE = .99
 EPSILON = 0.1
 BETA = .01
 # SDG_epoch is number of times to reuse trajectories; 1=REINFORCE
-SGD_EPOCH = 6
-LEARN_RATE = 1e-4
+SGD_EPOCH = 3
+LEARN_RATE = 1e-3
 
 
 def train_ppo(env, agent, num_episodes=NUM_EPISODES,
