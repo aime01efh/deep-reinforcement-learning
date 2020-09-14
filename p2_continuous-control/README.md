@@ -95,4 +95,4 @@ python -m ipykernel install --user --name drlnd --display-name "drlnd"
 
 ### Instructions
 
-Open the `Continuous_Control.ipynb` notebook and execute all cells after **"4. It's Your Turn!"**. This will train the agent, save the resulting model parameters, and display the plot of rewards vs time.
+Open the `Continuous_Control.ipynb` notebook and execute all cells after **"4. It's Your Turn!"**. This will train the agent, save the resulting model parameters, and display the plot of rewards vs time. If desired, you may pass the "num_episodes" keyword argument to train_ppo() in order to specify a number of episodes to run other than the default 5000.
