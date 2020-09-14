@@ -16,6 +16,7 @@ LEARN_RATE = 1e-3
 
 GOAL_WINDOW_LEN = 100
 
+
 def train_ppo(env, agent, num_episodes=NUM_EPISODES,
               epsilon=EPSILON, discount_rate=DISCOUNT_RATE,
               beta=BETA, num_sgd_epoch=SGD_EPOCH,

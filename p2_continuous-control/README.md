@@ -95,4 +95,4 @@ python -m ipykernel install --user --name drlnd --display-name "drlnd"
 
 ### Instructions
 
-Open the `Navigation.ipynb` notebook and execute all cells after **"4. It's Your Turn!"**. This will train the agent, save the resulting model parameters, and display the plot of rewards vs time.
+Open the `Continuous_Control.ipynb` notebook and execute all cells after **"4. It's Your Turn!"**. This will train the agent, save the resulting model parameters, and display the plot of rewards vs time.
