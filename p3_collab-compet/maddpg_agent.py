@@ -2,7 +2,7 @@
 # policy + critic updates
 # see ddpg.py for other details in the network
 
-from ddpg import DDPGAgent
+from ddpg_agent import DDPGAgent
 import torch
 from utilities import soft_update, transpose_to_tensor  # , transpose_list
 
@@ -10,16 +10,12 @@ from utilities import soft_update, transpose_to_tensor  # , transpose_list
 device = "cpu"
 
 
-class MADDPG:
-    def __init__(self, discount_factor=0.95, tau=0.02):
-        super(MADDPG, self).__init__()
-
+class MADDPG_Agent:
+    def __init__(self, num_agents, ddpg_params, discount_factor=0.95, tau=0.02):
         # critic input = obs_full + actions = 14+2+2+2=20
-        self.maddpg_agent = [
-            DDPGAgent(14, 16, 8, 2, 20, 32, 16),
-            DDPGAgent(14, 16, 8, 2, 20, 32, 16),
-            DDPGAgent(14, 16, 8, 2, 20, 32, 16),
-        ]
+        self.maddpg_agent = []
+        for _ in num_agents:
+            self.maddpg_agent.append(DDPGAgent(ddpg_params))
 
         self.discount_factor = discount_factor
         self.tau = tau
