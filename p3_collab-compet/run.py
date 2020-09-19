@@ -15,16 +15,17 @@ state_size = states.shape[1]
 num_agents = len(env_info.agents)
 
 ddpg_params = ddpg_agent.NNParams(
-    in_actor=state_size,
+    in_actor=num_agents*state_size,  # observations from both agents are concatenated
     hidden_in_actor=maddpg_train.HIDDEN_IN_ACTOR,
     hidden_out_actor=maddpg_train.HIDDEN_OUT_ACTOR,
     out_actor=action_size,
-    in_critic=state_size + num_agents * action_size,
+    in_critic=num_agents*state_size + num_agents*action_size,
     hidden_in_critic=maddpg_train.HIDDEN_IN_CRITIC,
     hidden_out_critic=maddpg_train.HIDDEN_OUT_CRITIC,
     lr_actor=maddpg_train.LR_ACTOR,
     lr_critic=maddpg_train.LR_CRITIC,
 )
+print(ddpg_params)
 
 agent = maddpg_agent.MADDPG_Agent(
     num_agents=2,

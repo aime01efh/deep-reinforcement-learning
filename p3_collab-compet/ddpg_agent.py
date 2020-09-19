@@ -1,7 +1,7 @@
 # individual network settings for each actor + critic pair
 # see networkforall for details
 
-from collections import namedtuple
+from typing import NamedTuple
 from networkforall import Network
 from utilities import hard_update  # , gumbel_softmax, onehot_from_logits
 from torch.optim import Adam
@@ -13,20 +13,18 @@ from torch.optim import Adam
 # add OU noise for exploration
 from OUNoise import OUNoise
 
-NNParams = namedtuple(
-    "NNParams",
-    [
-        "in_actor",
-        "hidden_in_actor",
-        "hidden_out_actor",
-        "out_actor",
-        "in_critic",
-        "hidden_in_critic",
-        "hidden_out_critic",
-        "lr_actor",
-        "lr_critic",
-    ],
-)
+
+class NNParams(NamedTuple):
+    in_actor: int
+    hidden_in_actor: int
+    hidden_out_actor: int
+    out_actor: int
+    in_critic: int
+    hidden_in_critic: int
+    hidden_out_critic: int
+    lr_actor: int
+    lr_critic: int
+
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = "cpu"

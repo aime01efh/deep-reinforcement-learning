@@ -10,6 +10,7 @@ def hidden_init(layer):
     return (-lim, lim)
 
 
+# TODO try dropout
 class Network(nn.Module):
     def __init__(
         self, input_dim, hidden_in_dim, hidden_out_dim, output_dim, actor=False
@@ -37,9 +38,7 @@ class Network(nn.Module):
     def forward(self, x):
         if self.actor:
             # return a vector of the force
-            foo = self.fc1(x)
-            h1 = self.nonlin(foo)
-
+            h1 = self.nonlin(self.fc1(x))
             h2 = self.nonlin(self.fc2(h1))
             h3 = self.fc3(h2)
             norm = torch.norm(h3)

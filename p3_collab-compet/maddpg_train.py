@@ -1,7 +1,7 @@
 import os
 from collections import deque
 
-from utilities import make_tensor
+from utilities import transpose_to_tensor
 from buffer import ReplayBuffer
 import torch
 import numpy as np
@@ -9,25 +9,28 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 
-# Default hyperparameters
-NUM_EPISODES = 1000
+# Default hyperparameters - some set per suggestions from
+#   https://knowledge.udacity.com/questions/315134
+NUM_EPISODES = 30000
 LEARN_RATE = 1e-3
-BATCHSIZE = 1000
+BATCHSIZE = 1024
 EPISODE_LENGTH = 80
-EPISODES_PER_UPDATE = 8
-DISCOUNT_FACTOR = 0.95
-TAU = 0.02
+EPISODES_PER_UPDATE = 2
+DISCOUNT_FACTOR = 0.99
+TAU = 0.001
+OU_NOISE = 0.5
+NOISE_REDUCTION = 0.9999
 
 # Default neural network sizes
-HIDDEN_IN_ACTOR = 64
-HIDDEN_OUT_ACTOR = 32
-HIDDEN_IN_CRITIC = 96
-HIDDEN_OUT_CRITIC = 48
-LR_ACTOR = 1.0e-3
-LR_CRITIC = 1.0e-3
+HIDDEN_IN_ACTOR = 128
+HIDDEN_OUT_ACTOR = 64
+HIDDEN_IN_CRITIC = 256
+HIDDEN_OUT_CRITIC = 128
+LR_ACTOR = 1.0e-4
+LR_CRITIC = 3.0e-4
 
 GOAL_WINDOW_LEN = 100
-REPLAY_BUFFER_LEN = 5000
+REPLAY_BUFFER_LEN = 100000
 
 MIN_ACTION = -1.0
 MAX_ACTION = 1.0
@@ -38,6 +41,13 @@ def seeding(random_seed=1):
     torch.manual_seed(random_seed)
 
 
+def get_train_obs(env_info):
+    raw_obs = env_info.vector_observations.reshape(1, -1).squeeze()
+    obs_full = [raw_obs]
+    obs = [[raw_obs, raw_obs]]  # Both agents get same full observation set
+    return obs, obs_full
+
+
 def train_maddpg(
     env,
     agent,
@@ -46,8 +56,8 @@ def train_maddpg(
     episode_length=EPISODE_LENGTH,
     episodes_per_update=EPISODES_PER_UPDATE,
     score_history=None,
-    ou_noise=2.0,
-    noise_reduction=0.9999,
+    ou_noise=OU_NOISE,
+    noise_reduction=NOISE_REDUCTION,
     random_seed=237,
     save_interval=1000,
     report_every=100,
@@ -83,8 +93,10 @@ def train_maddpg(
     for episode_idx in range_iter:
         env_info = env.reset(train_mode=True)[brain_name]
         scores = np.zeros(num_agents)
-        states = env_info.vector_observations
-        states_t = make_tensor(states)
+        obs, obs_full = get_train_obs(env_info)
+
+        # obs, obs_full = transpose_list(all_obs)
+        obs_t = transpose_to_tensor(obs)
 
         for episode_t in range(episode_length):
             # # action input needs to be transposed
@@ -93,27 +105,31 @@ def train_maddpg(
             # actions_array = torch.stack(actions).detach().numpy()
             # next_obs, next_obs_full, rewards, dones, info = env.step(actions_for_env)
 
-            actions_list = agent.act(states_t, ou_noise)
-            actions_npraw = np.array([x.detach().numpy() for x in actions_list])
-            actions = np.clip(actions_npraw, MIN_ACTION, MAX_ACTION)
-            env_info = env.step(actions)[brain_name]
-            next_states = env_info.vector_observations
-            rewards = env_info.rewards
+            actions_list = [x.squeeze(0) for x in agent.act(obs_t, ou_noise)]
+            actions = torch.stack(actions_list).unsqueeze(0).detach().numpy()
+            actions = np.clip(actions, MIN_ACTION, MAX_ACTION)
+            # actions_for_replay = np.expand_dims(actions, 0)
+            env_info = env.step(actions.squeeze(0))[brain_name]
+            next_obs, next_obs_full = get_train_obs(env_info)
+            rewards_2d = [env_info.rewards]
             dones = env_info.local_done
+            dones_2d = [dones]
             scores += env_info.rewards
 
             # add data to buffer
             transition = (
-                states,
+                obs,
+                obs_full,
                 actions,
-                rewards,
-                next_states,
-                dones,
+                rewards_2d,
+                next_obs,
+                next_obs_full,
+                dones_2d,
             )
 
             buffer.push(transition)
 
-            states = next_states
+            obs = next_obs
             if np.any(dones):
                 break
 
@@ -125,6 +141,9 @@ def train_maddpg(
         if len(buffer) > batchsize and episode_idx % episodes_per_update == 0:
             for a_i in range(num_agents):
                 samples = buffer.sample(batchsize)
+                # samples is a 5-element list:
+                #  [states_list, actions_list, rewards_list, next_states_list,
+                #   dones_list]
                 agent.update(samples, a_i, logger)
             agent.update_targets()  # soft update the target network towards the actual networks
 
