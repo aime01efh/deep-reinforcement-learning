@@ -33,7 +33,7 @@ agent = maddpg_agent.MADDPG_Agent(
     tau=maddpg_train.TAU,
 )
 
-mean_rewards = []
+score_history = []
 maddpg_train.train_maddpg(
-    env, agent, report_every=20, mean_rewards_per_episode=mean_rewards
+    env, agent, report_every=20, score_history=score_history,
 )

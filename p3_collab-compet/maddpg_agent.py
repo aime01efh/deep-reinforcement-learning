@@ -14,7 +14,7 @@ class MADDPG_Agent:
     def __init__(self, num_agents, ddpg_params, discount_factor=0.95, tau=0.02):
         # critic input = obs_full + actions = 14+2+2+2=20
         self.maddpg_agent = []
-        for _ in num_agents:
+        for _ in range(num_agents):
             self.maddpg_agent.append(DDPGAgent(ddpg_params))
 
         self.discount_factor = discount_factor
