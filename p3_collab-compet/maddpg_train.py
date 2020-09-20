@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 # Default hyperparameters - some set per suggestions from
 #   https://knowledge.udacity.com/questions/315134
-NUM_EPISODES = 30000
+NUM_EPISODES = 3000
 LEARN_RATE = 1e-3
 BATCHSIZE = 1024
 EPISODE_LENGTH = 80
@@ -50,7 +50,7 @@ def get_train_obs(env_info):
 
 def train_maddpg(
     env,
-    agent,
+    main_agent,
     num_episodes=NUM_EPISODES,
     batchsize=BATCHSIZE,
     episode_length=EPISODE_LENGTH,
@@ -85,7 +85,7 @@ def train_maddpg(
     logger = SummaryWriter(log_dir=log_path)
     agent_rewards = []
     for _ in range(num_agents):
-        agent_rewards.append([])
+        agent_rewards.append(deque(maxlen=GOAL_WINDOW_LEN))
 
     range_iter = range(num_episodes)
     if progressbar:
@@ -105,7 +105,7 @@ def train_maddpg(
             # actions_array = torch.stack(actions).detach().numpy()
             # next_obs, next_obs_full, rewards, dones, info = env.step(actions_for_env)
 
-            actions_list = [x.squeeze(0) for x in agent.act(obs_t, ou_noise)]
+            actions_list = [x.squeeze(0) for x in main_agent.act(obs_t, ou_noise)]
             actions = torch.stack(actions_list).unsqueeze(0).detach().numpy()
             actions = np.clip(actions, MIN_ACTION, MAX_ACTION)
             # actions_for_replay = np.expand_dims(actions, 0)
@@ -141,36 +141,36 @@ def train_maddpg(
         if len(buffer) > batchsize and episode_idx % episodes_per_update == 0:
             for a_i in range(num_agents):
                 samples = buffer.sample(batchsize)
-                # samples is a 5-element list:
-                #  [states_list, actions_list, rewards_list, next_states_list,
-                #   dones_list]
-                agent.update(samples, a_i, logger)
-            agent.update_targets()  # soft update the target network towards the actual networks
+                # samples is a 7-element list: sample transitions from the replay
+                # buffer, transposed
+                main_agent.update(samples, a_i, logger)
+            # soft update the target network towards the actual networks
+            main_agent.update_targets()
 
-        # for i in range(num_agents):
-        #     agent_rewards[i].append(scores[i])
+        for i in range(num_agents):
+            agent_rewards[i].append(scores[i])
 
-        # if episode % 100 == 0 or episode == number_of_episodes - 1:
-        #     avg_rewards = [
-        #         np.mean(agent0_reward),
-        #         np.mean(agent1_reward),
-        #     ]
-        #     agent0_reward = []
-        #     agent1_reward = []
-        #     for a_i, avg_rew in enumerate(avg_rewards):
-        #         logger.add_scalar(
-        #             "agent%i/mean_episode_rewards" % a_i, avg_rew, episode
-        #         )
+        logger.add_scalar("episode_score", episode_score, episode_idx)
+        if (episode_idx + 1) % report_every == 0 or episode_idx == num_episodes - 1:
+            logger.add_scalar("mean_window_score", np.mean(scores_window), episode_idx)
 
-        if (episode_idx + 1) % report_every == 0:
-            print("Episode: {0:d}, score: {1:f}, window mean: {2:f}"
-                  .format(episode_idx+1, episode_score,
-                          np.mean(scores_window)))
+            for a_i, ag_rewards in enumerate(agent_rewards):
+                logger.add_scalar(
+                    "agent%i/mean_window_reward" % a_i,
+                    np.mean(ag_rewards),
+                    episode_idx,
+                )
+
+            print(
+                "Episode: {0:d}, score: {1:f}, window mean: {2:f}".format(
+                    episode_idx + 1, episode_score, np.mean(scores_window)
+                )
+            )
 
         # saving model
         save_dict_list = []
-        if (episode_idx + 1) % save_interval == 0:
-            for agent in agent.maddpg_agent:
+        if (episode_idx + 1) % save_interval == 0 or episode_idx == num_episodes - 1:
+            for agent in main_agent.maddpg_agent:
                 save_dict = {
                     "actor_params": agent.actor.state_dict(),
                     "actor_optim_params": agent.actor_optimizer.state_dict(),
@@ -185,9 +185,12 @@ def train_maddpg(
                 )
         # See if we're good enough to stop
         if np.mean(scores_window) >= score_goal:
-            print('\nEnvironment solved in {:d} episodes!\t'
-                  'Average Score: {:.2f}'
-                  .format(episode_idx-GOAL_WINDOW_LEN, np.mean(scores_window)))
+            print(
+                "\nEnvironment solved in {:d} episodes!\t"
+                "Average Score: {:.2f}".format(
+                    episode_idx - GOAL_WINDOW_LEN, np.mean(scores_window)
+                )
+            )
             break
 
     env.close()
