@@ -9,9 +9,11 @@ from torch.optim import Adam
 # import torch
 # import numpy as np
 
-
 # add OU noise for exploration
 from OUNoise import OUNoise
+
+# WEIGHT_DECAY = 1e-5
+WEIGHT_DECAY = 0
 
 
 class NNParams(NamedTuple):
@@ -53,7 +55,7 @@ class DDPGAgent:
 
         self.actor_optimizer = Adam(self.actor.parameters(), lr=p.lr_actor)
         self.critic_optimizer = Adam(
-            self.critic.parameters(), lr=p.lr_critic, weight_decay=1.0e-5
+            self.critic.parameters(), lr=p.lr_critic, weight_decay=WEIGHT_DECAY
         )
 
     def act(self, obs, noise=0.0):
