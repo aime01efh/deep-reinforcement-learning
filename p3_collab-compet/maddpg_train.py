@@ -18,7 +18,7 @@ EPISODE_LENGTH = 80
 EPISODES_PER_UPDATE = 2
 DISCOUNT_FACTOR = 0.99
 TAU = 0.001
-OU_NOISE = 0.5
+OU_NOISE = 1.0
 NOISE_REDUCTION = 0.9999
 
 # Default neural network sizes
@@ -43,7 +43,7 @@ def seeding(random_seed=1):
 
 def get_train_obs(env_info):
     raw_obs = env_info.vector_observations.reshape(1, -1).squeeze()
-    obs_full = [raw_obs]
+    obs_full = [[raw_obs]]
     obs = [[raw_obs, raw_obs]]  # Both agents get same full observation set
     return obs, obs_full
 
@@ -64,6 +64,8 @@ def train_maddpg(
     score_goal=0.5,
     progressbar=True,
 ):
+    """Perform MADDPG agent training
+    """
     seeding(random_seed)
     if score_history is None:
         score_history = []
@@ -93,9 +95,10 @@ def train_maddpg(
     for episode_idx in range_iter:
         env_info = env.reset(train_mode=True)[brain_name]
         scores = np.zeros(num_agents)
+        # obs_full: observations as returned from env_info
+        # obs: per-agent observations, each just a copy of obs_full
         obs, obs_full = get_train_obs(env_info)
 
-        # obs, obs_full = transpose_list(all_obs)
         obs_t = transpose_to_tensor(obs)
 
         for episode_t in range(episode_length):
@@ -150,13 +153,15 @@ def train_maddpg(
         for i in range(num_agents):
             agent_rewards[i].append(scores[i])
 
-        logger.add_scalar("episode_score", episode_score, episode_idx)
+        logger.add_scalar("scores/episode_score", episode_score, episode_idx)
         if (episode_idx + 1) % report_every == 0 or episode_idx == num_episodes - 1:
-            logger.add_scalar("mean_window_score", np.mean(scores_window), episode_idx)
+            logger.add_scalar(
+                "scores/mean_window_score", np.mean(scores_window), episode_idx
+            )
 
             for a_i, ag_rewards in enumerate(agent_rewards):
                 logger.add_scalar(
-                    "agent%i/mean_window_reward" % a_i,
+                    "agent%i/rewards/mean_window_reward" % a_i,
                     np.mean(ag_rewards),
                     episode_idx,
                 )
