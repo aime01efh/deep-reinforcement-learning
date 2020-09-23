@@ -57,8 +57,8 @@ class MADDPG_Agent:
             transpose_to_tensor, samples
         )
 
-        obs_full = torch.stack(obs_full)
-        next_obs_full = torch.stack(next_obs_full)
+        obs_full = torch.stack(obs_full).squeeze(0)
+        next_obs_full = torch.stack(next_obs_full).squeeze(0)
 
         agent = self.maddpg_agent[agent_number]
         agent.critic_optimizer.zero_grad()
@@ -68,7 +68,7 @@ class MADDPG_Agent:
         target_actions = self.target_act(next_obs)
         target_actions = torch.cat(target_actions, dim=1)
 
-        target_critic_input = torch.cat((next_obs_full.t(), target_actions), dim=1).to(
+        target_critic_input = torch.cat((next_obs_full, target_actions), dim=1).to(
             device
         )
 
@@ -79,7 +79,7 @@ class MADDPG_Agent:
             1 - done[agent_number].view(-1, 1)
         )
         action = torch.cat(action, dim=1)
-        critic_input = torch.cat((obs_full.t(), action), dim=1).to(device)
+        critic_input = torch.cat((obs_full, action), dim=1).to(device)
         q = agent.critic(critic_input)
 
         huber_loss = torch.nn.SmoothL1Loss()
@@ -103,7 +103,7 @@ class MADDPG_Agent:
         q_input = torch.cat(q_input, dim=1)
         # combine all the actions and observations for input to critic
         # many of the obs are redundant, and obs[1] contains all useful information already
-        q_input2 = torch.cat((obs_full.t(), q_input), dim=1)
+        q_input2 = torch.cat((obs_full, q_input), dim=1)
 
         # get the policy gradient
         actor_loss = -agent.critic(q_input2).mean()
