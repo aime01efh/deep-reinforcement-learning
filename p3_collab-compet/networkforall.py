@@ -1,4 +1,4 @@
-import torch
+# import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
@@ -43,11 +43,13 @@ class Network(nn.Module):
             h1 = self.nonlin(self.fc1(x))
             h2 = self.nonlin(self.fc2(h1))
             h3 = self.fc3(h2)
-            norm = torch.norm(h3)
 
             # h3 is a 2D vector (a force that is applied to the agent)
             # we bound the norm of the vector to be between 0 and 10
-            return 10.0 * (F.tanh(norm)) * h3 / norm if norm > 0 else 10 * h3
+            # norm = torch.norm(h3)
+            # return 10.0 * (F.tanh(norm)) * h3 / norm if norm > 0 else 10 * h3
+            output_actions = F.tanh(h3)
+            return output_actions
 
         else:
             # critic network simply outputs a number
