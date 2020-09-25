@@ -26,8 +26,8 @@ if True:
     hidden_out_actor = random.choice([64, 128, 256, 512])
     hidden_in_critic = random.choice([128, 256, 512, 1024])
     hidden_out_critic = random.choice([128, 256, 512, 1024])
-    lr_actor = random.choice([1e-5, 3e-5, 1e-4, 3e-4, 1e-3])
-    lr_critic = random.choice([1e-5, 3e-5, 1e-4, 3e-4, 1e-3])
+    lr_actor = random.choice([1e-5, 1e-4, 1e-3, 1e-2])
+    lr_critic = random.choice([1e-5, 1e-4, 1e-3, 1e-2])
     dropout = random.choice([0.1, 0.2, 0.3, 0.4, 0.5])
 
     ddpg_params = ddpg_agent.NNParams(
@@ -46,7 +46,7 @@ if True:
 
     batchsize = random.choice([64, 128, 512, 1024])
     maddpg_train.REPLAY_BUFFER_LEN = random.choice([10000, 100000, 100000])
-    episode_length = random.choice([80, 1000, 10000])
+    episode_length = random.choice([100, 200, 1000])
     episodes_per_update = random.choice([1, 2, 4, 8])
     discount_factor = random.choice([1.0, 0.99, 0.98, 0.95])
     tau = random.choice([1e-4, 1e-3, 1e-2])
@@ -84,8 +84,8 @@ if True:
 #     hidden_out_actor = 512
 #     hidden_in_critic = 256
 #     hidden_out_critic = 512
-#     lr_actor = 1e-5
-#     lr_critic = 1e-4
+#     lr_actor = 0.01
+#     lr_critic = 0.01
 #     dropout = 0.3
 
 #     ddpg_params = ddpg_agent.NNParams(
@@ -102,13 +102,13 @@ if True:
 #     )
 #     print(ddpg_params)
 
-#     batchsize = 128
+#     batchsize = 1024
 #     maddpg_train.REPLAY_BUFFER_LEN = 1_000_000
 #     episode_length = 1000
 #     episodes_per_update = 2
-#     discount_factor = 0.99  # gamma
-#     tau = 1e-3
-#     ou_noise = 4.0
+#     discount_factor = 0.95  # gamma
+#     tau = 1e-2
+#     ou_noise = 2.0
 #     noise_reduction = 0.999
 #     print(f'batchsize={batchsize}, '
 #           f'replay_buffer_len={maddpg_train.REPLAY_BUFFER_LEN}, '
