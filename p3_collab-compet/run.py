@@ -5,7 +5,7 @@ import ddpg_agent
 import random
 
 
-env = UnityEnvironment(file_name="Tennis_Linux/Tennis.x86_64")
+env = UnityEnvironment(file_name="Tennis_Linux/Tennis.x86_64", no_graphics=True)
 # get the default brain
 brain_name = env.brain_names[0]
 brain = env.brains[brain_name]
