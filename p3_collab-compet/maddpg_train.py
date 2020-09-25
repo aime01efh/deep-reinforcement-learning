@@ -44,7 +44,8 @@ def seeding(random_seed=1):
 def get_train_obs(env_info):
     raw_obs = env_info.vector_observations.reshape(1, -1).squeeze()
     obs_full = [[raw_obs]]
-    obs = [[raw_obs, raw_obs]]  # Both agents get same full observation set
+    # obs = [[raw_obs, raw_obs]]  # Both agents get same full observation set
+    obs = [[x for x in env_info.vector_observations]]  # Each agent gets only own obs
     return obs, obs_full
 
 
