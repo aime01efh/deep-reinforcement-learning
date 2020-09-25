@@ -52,11 +52,16 @@ class MADDPG_Agent:
         return actions
 
     def target_act(self, obs_all_agents, noise=0.0):
-        """get target network actions from all the agents in the MADDPG object """
-        target_actions = [
-            ddpg_agent.target_act(obs, noise)
-            for ddpg_agent, obs in zip(self.maddpg_agent, obs_all_agents)
-        ]
+        """get target network actions from all the agents in the MADDPG object
+        For evaluation only, not training
+        """
+        with torch.no_grad():
+            self.set_train_mode(False)
+            target_actions = [
+                ddpg_agent.target_act(obs, noise)
+                for ddpg_agent, obs in zip(self.maddpg_agent, obs_all_agents)
+            ]
+            self.set_train_mode(True)
         return target_actions
 
     def update(self, samples, agent_number, logger):
@@ -94,10 +99,12 @@ class MADDPG_Agent:
         critic_input = torch.cat((obs_full, action), dim=1).to(device)
         q = agent.critic(critic_input)
 
-        huber_loss = torch.nn.SmoothL1Loss()
-        critic_loss = huber_loss(q, y.detach())
+        # huber_loss = torch.nn.SmoothL1Loss()
+        # critic_loss = huber_loss(q, y.detach())
+        mse_loss = torch.nn.MSELoss()
+        critic_loss = mse_loss(q, y.detach())
         critic_loss.backward()
-        # torch.nn.utils.clip_grad_norm_(agent.critic.parameters(), 0.5)
+        torch.nn.utils.clip_grad_norm_(agent.critic.parameters(), 0.5)
         agent.critic_optimizer.step()
 
         # update actor network using policy gradient
