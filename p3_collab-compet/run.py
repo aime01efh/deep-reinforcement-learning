@@ -21,7 +21,7 @@ num_agents = len(env_info.agents)
 in_actor_size = state_size  # each actor gets only its own observations
 
 if True:
-    print('Random values')
+    print("Random values")
     hidden_in_actor = random.choice([64, 128, 256, 512])
     hidden_out_actor = random.choice([64, 128, 256, 512])
     hidden_in_critic = random.choice([128, 256, 512, 1024])
@@ -52,12 +52,14 @@ if True:
     tau = random.choice([1e-4, 1e-3, 1e-2])
     ou_noise = random.choice([1.0, 2.0, 4.0])
     noise_reduction = random.choice([0.99999, 0.9999, 0.999])
-    print(f'batchsize={batchsize}, '
-          f'replay_buffer_len={maddpg_train.REPLAY_BUFFER_LEN}, '
-          f'episode_length={episode_length}, '
-          f'episodes_per_update={episodes_per_update}, '
-          f'discount_factor={discount_factor},'
-          f'tau={tau}, ou_noise={ou_noise}, noise_reduction={noise_reduction}')
+    print(
+        f"batchsize={batchsize}, "
+        f"replay_buffer_len={maddpg_train.REPLAY_BUFFER_LEN}, "
+        f"episode_length={episode_length}, "
+        f"episodes_per_update={episodes_per_update}, "
+        f"discount_factor={discount_factor},"
+        f"tau={tau}, ou_noise={ou_noise}, noise_reduction={noise_reduction}"
+    )
 
     agent = maddpg_agent.MADDPG_Agent(
         num_agents=num_agents,
@@ -68,14 +70,17 @@ if True:
 
     score_history = []
     maddpg_train.train_maddpg(
-        env, agent, report_every=200, num_episodes=5000,
+        env,
+        agent,
+        report_every=200,
+        num_episodes=5000,
         score_history=score_history,
         batchsize=batchsize,
         episode_length=episode_length,
         episodes_per_update=episodes_per_update,
         ou_noise=ou_noise,
         noise_reduction=noise_reduction,
-        progressbar=False
+        progressbar=False,
     )
 
 # if True:

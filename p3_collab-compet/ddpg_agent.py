@@ -36,13 +36,23 @@ device = "cpu"
 class DDPGAgent:
     def __init__(self, p: NNParams):
         self.actor = Network(
-            p.in_actor, p.hidden_in_actor, p.hidden_out_actor, p.out_actor, p.dropout, actor=True
+            p.in_actor,
+            p.hidden_in_actor,
+            p.hidden_out_actor,
+            p.out_actor,
+            p.dropout,
+            actor=True,
         ).to(device)
         self.critic = Network(
             p.in_critic, p.hidden_in_critic, p.hidden_out_critic, 1, p.dropout
         ).to(device)
         self.target_actor = Network(
-            p.in_actor, p.hidden_in_actor, p.hidden_out_actor, p.out_actor, p.dropout, actor=True
+            p.in_actor,
+            p.hidden_in_actor,
+            p.hidden_out_actor,
+            p.out_actor,
+            p.dropout,
+            actor=True,
         ).to(device)
         self.target_critic = Network(
             p.in_critic, p.hidden_in_critic, p.hidden_out_critic, 1, p.dropout
