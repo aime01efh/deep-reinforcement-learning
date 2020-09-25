@@ -13,22 +13,18 @@ def hidden_init(layer):
 # TODO try dropout
 class Network(nn.Module):
     def __init__(
-        self, input_dim, hidden_in_dim, hidden_out_dim, output_dim, actor=False
+        self, input_dim, hidden_in_dim, hidden_out_dim, output_dim, dropout, actor=False
     ):
         super(Network, self).__init__()
 
-        # TODO enable?
-        """self.input_norm = nn.BatchNorm1d(input_dim)
-        self.input_norm.weight.data.fill_(1)
-        self.input_norm.bias.data.fill_(0)"""
-
         self.fc1 = nn.Linear(input_dim, hidden_in_dim)
+        self.bnorm1 = nn.BatchNorm1d(hidden_in_dim)
         self.fc2 = nn.Linear(hidden_in_dim, hidden_out_dim)
+        self.bnorm2 = nn.BatchNorm1d(hidden_out_dim)
         self.fc3 = nn.Linear(hidden_out_dim, output_dim)
         self.nonlin = F.relu  # leaky_relu
+        self.dropout = nn.Dropout(dropout)
         self.actor = actor
-        # TODO enable?
-        # self.reset_parameters()
 
     def reset_parameters(self):
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
@@ -40,8 +36,10 @@ class Network(nn.Module):
     def forward(self, x):
         if self.actor:
             # return a vector of the force
-            h1 = self.nonlin(self.fc1(x))
-            h2 = self.nonlin(self.fc2(h1))
+            h1 = self.nonlin(self.bnorm1(self.fc1(x)))
+            h1 = self.dropout(h1)
+            h2 = self.nonlin(self.bnorm2(self.fc2(h1)))
+            h2 = self.dropout(h2)
             h3 = self.fc3(h2)
 
             # h3 is a 2D vector (a force that is applied to the agent)
@@ -53,7 +51,7 @@ class Network(nn.Module):
 
         else:
             # critic network simply outputs a number
-            h1 = self.nonlin(self.fc1(x))
-            h2 = self.nonlin(self.fc2(h1))
+            h1 = self.nonlin(self.bnorm1(self.fc1(x)))
+            h2 = self.nonlin(self.bnorm2(self.fc2(h1)))
             h3 = self.fc3(h2)
             return h3

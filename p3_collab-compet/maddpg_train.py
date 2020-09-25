@@ -1,3 +1,4 @@
+from maddpg_agent import MADDPG_Agent
 import os
 from collections import deque
 
@@ -51,7 +52,7 @@ def get_train_obs(env_info):
 
 def train_maddpg(
     env,
-    main_agent,
+    main_agent: MADDPG_Agent,
     num_episodes=NUM_EPISODES,
     batchsize=BATCHSIZE,
     episode_length=EPISODE_LENGTH,
