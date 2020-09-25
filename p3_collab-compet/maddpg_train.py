@@ -82,7 +82,7 @@ def train_maddpg(
     model_dir = os.getcwd() + "/model_dir"
     os.makedirs(model_dir, exist_ok=True)
 
-    buffer = ReplayBuffer(int(REPLAY_BUFFER_LEN * episode_length))
+    buffer = ReplayBuffer(REPLAY_BUFFER_LEN)
 
     # initialize policy and critic
     logger = SummaryWriter(log_dir=log_path)
