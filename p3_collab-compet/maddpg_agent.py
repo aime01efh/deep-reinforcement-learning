@@ -1,7 +1,7 @@
 # main code that contains the neural network setup
 # policy + critic updates
 # see ddpg.py for other details in the network
-
+from typing import List
 from ddpg_agent import DDPGAgent
 import torch
 from utilities import soft_update, transpose_to_tensor  # , transpose_list
@@ -13,7 +13,7 @@ device = "cpu"
 class MADDPG_Agent:
     def __init__(self, num_agents, ddpg_params, discount_factor=0.95, tau=0.02):
         # critic input = obs_full + actions = 14+2+2+2=20
-        self.maddpg_agent = []
+        self.maddpg_agent: List[DDPGAgent] = []
         for _ in range(num_agents):
             self.maddpg_agent.append(DDPGAgent(ddpg_params))
 
@@ -31,12 +31,24 @@ class MADDPG_Agent:
         target_actors = [ddpg_agent.target_actor for ddpg_agent in self.maddpg_agent]
         return target_actors
 
+    def set_train_mode(self, train_mode=True):
+        """Enabled or disable training mode for all agents
+        """
+        for agent in self.maddpg_agent:
+            agent.actor.train(train_mode)
+            agent.critic.train(train_mode)
+
     def act(self, obs_all_agents, noise=0.0):
-        """get actions from all agents in the MADDPG object"""
-        actions = [
-            agent.act(obs, noise)
-            for agent, obs in zip(self.maddpg_agent, obs_all_agents)
-        ]
+        """Get actions from all agents in the MADDPG object.
+        For evaluation only, not training
+        """
+        with torch.no_grad():
+            self.set_train_mode(False)
+            actions = [
+                agent.act(obs, noise)
+                for agent, obs in zip(self.maddpg_agent, obs_all_agents)
+            ]
+            self.set_train_mode(True)
         return actions
 
     def target_act(self, obs_all_agents, noise=0.0):
