@@ -182,8 +182,8 @@ def train_maddpg(
                 break
 
         # Saving model
-        save_dict_list = []
         if (episode_idx + 1) % save_interval == 0 or episode_idx == num_episodes - 1:
+            save_dict_list = []
             for agent in main_agent.maddpg_agent:
                 save_dict = {
                     "actor_params": agent.actor.state_dict(),
@@ -193,10 +193,10 @@ def train_maddpg(
                 }
                 save_dict_list.append(save_dict)
 
-                torch.save(
-                    save_dict_list,
-                    os.path.join(model_dir, "episode-{}.pt".format(episode_idx)),
-                )
+            torch.save(
+                save_dict_list,
+                os.path.join(model_dir, "episode-{}.pt".format(episode_idx)),
+            )
 
         # See if we're good enough to stop
         if np.mean(scores_window) >= score_goal:
