@@ -134,6 +134,7 @@ def train_maddpg(
 
             buffer.push(transition)
 
+            ou_noise *= noise_reduction
             obs = next_obs
             if np.any(dones):
                 break
