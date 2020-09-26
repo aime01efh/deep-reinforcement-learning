@@ -51,7 +51,7 @@ if True:
     discount_factor = random.choice([1.0, 0.99, 0.98, 0.95])
     tau = random.choice([1e-4, 1e-3, 1e-2])
     ou_noise = random.choice([1.0, 2.0, 4.0])
-    noise_reduction = random.choice([0.99999, 0.9999, 0.999])
+    noise_reduction = random.choice([0.99995, 0.9999, 0.9999])
     print(
         f"batchsize={batchsize}, "
         f"replay_buffer_len={maddpg_train.REPLAY_BUFFER_LEN}, "
@@ -81,7 +81,7 @@ if True:
         ou_noise=ou_noise,
         noise_reduction=noise_reduction,
         progressbar=False,
-        stopearly=2500,
+        stopearly=5000,
     )
 
 # if True:
