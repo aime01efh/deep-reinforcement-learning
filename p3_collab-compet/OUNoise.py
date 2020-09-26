@@ -4,6 +4,7 @@ import torch
 
 # from https://github.com/songrotek/DDPG/blob/master/ou_noise.py
 class OUNoise:
+    """Implement Ornstein-Uhlenbeck noise"""
     def __init__(self, action_dimension, scale=0.1, mu=0, theta=0.15, sigma=0.2):
         self.action_dimension = action_dimension
         self.scale = scale

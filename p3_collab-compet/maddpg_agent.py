@@ -2,15 +2,17 @@
 # policy + critic updates
 # see ddpg.py for other details in the network
 from typing import List
-from ddpg_agent import DDPGAgent
+from ddpg_agent import DDPGAgent, device
 import torch
 from utilities import soft_update, transpose_to_tensor  # , transpose_list
 
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = "cpu"
-
 
 class MADDPG_Agent:
+    """MADDPG Learning Algorithm
+
+    Manages multiple DDPG agents, each with their own actor and critic
+    networks.
+    """
     def __init__(self, num_agents, ddpg_params, discount_factor=0.95, tau=0.02):
         # critic input = obs_full + actions = 14+2+2+2=20
         self.maddpg_agent: List[DDPGAgent] = []

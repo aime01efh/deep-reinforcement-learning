@@ -34,6 +34,11 @@ device = "cpu"
 
 
 class DDPGAgent:
+    """Deep Deterministic Policy Gradient agent
+
+    Manages four separate neural networks: working and target actor networks,
+    and working and target critic networks, as well as OU noise generation.
+    """
     def __init__(self, p: NNParams):
         self.actor = Network(
             p.in_actor,
@@ -70,11 +75,17 @@ class DDPGAgent:
         )
 
     def act(self, obs, noise=0.0):
+        """Select an action from the working policy based on the given state, with OU noise
+        added that is scaled by the value of the "noise" parameter
+        """
         obs = obs.to(device)
         action = self.actor(obs) + noise * self.noise.noise()
         return action
 
     def target_act(self, obs, noise=0.0):
+        """Select an action from the target policy based on the given state, with OU noise
+        added that is scaled by the value of the "noise" parameter
+        """
         obs = obs.to(device)
         action = self.target_actor(obs) + noise * self.noise.noise()
         return action

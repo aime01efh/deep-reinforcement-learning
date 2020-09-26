@@ -38,11 +38,15 @@ MAX_ACTION = 1.0
 
 
 def seeding(random_seed=1):
+    """Set the PRNG seeds for numpy and torch"""
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
 
 
 def get_train_obs(env_info):
+    """Retrieve state from env_info and return (obs, obs_full) in which obs is a list
+    of per-agent observations and obs_full has observations from all agents combined
+    """
     raw_obs = env_info.vector_observations.reshape(1, -1).squeeze()
     obs_full = [[raw_obs]]
     # obs = [[raw_obs, raw_obs]]  # Both agents get same full observation set
@@ -73,7 +77,7 @@ def train_maddpg(
     if score_history is None:
         score_history = []
 
-    # last 100 scores
+    # keep track of last 100 scores
     scores_window = deque(maxlen=GOAL_WINDOW_LEN)
     all_window_means = []
 
@@ -86,9 +90,8 @@ def train_maddpg(
     os.makedirs(model_dir, exist_ok=True)
 
     buffer = ReplayBuffer(REPLAY_BUFFER_LEN)
-
-    # initialize policy and critic
     logger = SummaryWriter(log_dir=log_path)
+
     agent_rewards = []
     for _ in range(num_agents):
         agent_rewards.append(deque(maxlen=GOAL_WINDOW_LEN))
@@ -105,17 +108,11 @@ def train_maddpg(
 
         obs_t = transpose_to_tensor(obs)
 
+        # Run a trajectory and add steps to the replay buffer
         for episode_t in range(episode_length):
-            # # action input needs to be transposed
-            # actions = maddpg.act(transpose_to_tensor(obs), noise=noise)
-            # noise *= noise_reduction
-            # actions_array = torch.stack(actions).detach().numpy()
-            # next_obs, next_obs_full, rewards, dones, info = env.step(actions_for_env)
-
             actions_list = [x.squeeze(0) for x in main_agent.act(obs_t, ou_noise)]
             actions = torch.stack(actions_list).unsqueeze(0).detach().numpy()
             actions = np.clip(actions, MIN_ACTION, MAX_ACTION)
-            # actions_for_replay = np.expand_dims(actions, 0)
             env_info = env.step(actions.squeeze(0))[brain_name]
             next_obs, next_obs_full = get_train_obs(env_info)
             rewards_2d = [env_info.rewards]
@@ -145,7 +142,7 @@ def train_maddpg(
         scores_window.append(episode_score)
         score_history.append(episode_score)
 
-        # update once after every episode_per_update
+        # update agents once after every episode_per_update
         if len(buffer) > batchsize and episode_idx % episodes_per_update == 0:
             for a_i in range(num_agents):
                 samples = buffer.sample(batchsize)
@@ -158,6 +155,7 @@ def train_maddpg(
         for i in range(num_agents):
             agent_rewards[i].append(scores[i])
 
+        # Reporting
         logger.add_scalar("scores/episode_score", episode_score, episode_idx)
         if (episode_idx + 1) % report_every == 0 or episode_idx == num_episodes - 1:
             logger.add_scalar(
@@ -183,7 +181,7 @@ def train_maddpg(
                 print("Giving up early, not looking good")
                 break
 
-        # saving model
+        # Saving model
         save_dict_list = []
         if (episode_idx + 1) % save_interval == 0 or episode_idx == num_episodes - 1:
             for agent in main_agent.maddpg_agent:
@@ -199,6 +197,7 @@ def train_maddpg(
                     save_dict_list,
                     os.path.join(model_dir, "episode-{}.pt".format(episode_idx)),
                 )
+
         # See if we're good enough to stop
         if np.mean(scores_window) >= score_goal:
             print(
