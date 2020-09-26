@@ -65,6 +65,7 @@ def train_maddpg(
     report_every=100,
     score_goal=0.5,
     progressbar=True,
+    stopearly=None,  # stop after this # episodes if all windows means are <1e-5
 ):
     """Perform MADDPG agent training
     """
@@ -74,6 +75,7 @@ def train_maddpg(
 
     # last 100 scores
     scores_window = deque(maxlen=GOAL_WINDOW_LEN)
+    all_window_means = []
 
     brain_name = env.brain_names[0]
     env_info = env.reset(train_mode=True)[brain_name]
@@ -161,6 +163,7 @@ def train_maddpg(
             logger.add_scalar(
                 "scores/mean_window_score", np.mean(scores_window), episode_idx
             )
+            logger.add_scalar("ou_noise", ou_noise, episode_idx)
 
             for a_i, ag_rewards in enumerate(agent_rewards):
                 logger.add_scalar(
@@ -174,6 +177,11 @@ def train_maddpg(
                     episode_idx + 1, episode_score, np.mean(scores_window)
                 )
             )
+
+            all_window_means.append(np.mean(scores_window))
+            if stopearly and episode_idx >= stopearly and max(all_window_means) < 1e-4:
+                print("Giving up early, not looking good")
+                break
 
         # saving model
         save_dict_list = []
