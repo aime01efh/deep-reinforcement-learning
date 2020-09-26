@@ -73,7 +73,7 @@ if True:
         env,
         agent,
         report_every=200,
-        num_episodes=5000,
+        num_episodes=10000,
         score_history=score_history,
         batchsize=batchsize,
         episode_length=episode_length,
