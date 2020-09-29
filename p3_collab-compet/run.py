@@ -40,6 +40,7 @@ if True:
         hidden_out_critic=hidden_out_critic,
         lr_actor=lr_actor,
         lr_critic=lr_critic,
+        out_critic=num_agents,
         dropout=dropout,
     )
     print(ddpg_params)

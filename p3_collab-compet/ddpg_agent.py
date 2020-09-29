@@ -26,6 +26,7 @@ class NNParams(NamedTuple):
     hidden_out_critic: int
     lr_actor: float
     lr_critic: float
+    out_critic: int
     dropout: float
 
 
@@ -38,7 +39,12 @@ class DDPGAgent:
 
     Manages four separate neural networks: working and target actor networks,
     and working and target critic networks, as well as OU noise generation.
+
+    One instance of DDPGAgent will be used as the centralized critic and its
+    actor networks will be ignored; the other instances will be used for
+    their actor networks and their critic networks ignored.
     """
+
     def __init__(self, p: NNParams):
         self.actor = Network(
             p.in_actor,
@@ -49,7 +55,11 @@ class DDPGAgent:
             actor=True,
         ).to(device)
         self.critic = Network(
-            p.in_critic, p.hidden_in_critic, p.hidden_out_critic, 1, p.dropout
+            p.in_critic,
+            p.hidden_in_critic,
+            p.hidden_out_critic,
+            p.out_critic,
+            p.dropout,
         ).to(device)
         self.target_actor = Network(
             p.in_actor,
@@ -60,7 +70,11 @@ class DDPGAgent:
             actor=True,
         ).to(device)
         self.target_critic = Network(
-            p.in_critic, p.hidden_in_critic, p.hidden_out_critic, 1, p.dropout
+            p.in_critic,
+            p.hidden_in_critic,
+            p.hidden_out_critic,
+            p.out_critic,
+            p.dropout,
         ).to(device)
 
         self.noise = OUNoise(p.out_actor, scale=1.0)
@@ -75,17 +89,21 @@ class DDPGAgent:
         )
 
     def act(self, obs, noise=0.0):
-        """Select an action from the working policy based on the given state, with OU noise
-        added that is scaled by the value of the "noise" parameter
+        """Select an action from the working policy based on the given state,
+        with OU noise added that is scaled by the value of the "noise" parameter
         """
         obs = obs.to(device)
         action = self.actor(obs) + noise * self.noise.noise()
         return action
 
     def target_act(self, obs, noise=0.0):
-        """Select an action from the target policy based on the given state, with OU noise
-        added that is scaled by the value of the "noise" parameter
+        """Select an action from the target policy based on the given state,
+        with OU noise added that is scaled by the value of the "noise" parameter
         """
         obs = obs.to(device)
         action = self.target_actor(obs) + noise * self.noise.noise()
         return action
+
+    def reset(self):
+        """Reset OU noise"""
+        self.noise.reset()

@@ -18,6 +18,7 @@ class MADDPG_Agent:
         self.maddpg_agent: List[DDPGAgent] = []
         for _ in range(num_agents):
             self.maddpg_agent.append(DDPGAgent(ddpg_params))
+        self.maddpg_critic = DDPGAgent(ddpg_params)
 
         self.discount_factor = discount_factor
         self.tau = tau
@@ -66,7 +67,13 @@ class MADDPG_Agent:
             self.set_train_mode(True)
         return target_actions
 
-    def update(self, samples, agent_number, logger):
+    def reset_episode(self):
+        """Reset DDPG agents to begin an episode"""
+        for agent in self.maddpg_agent:
+            agent.reset()
+        self.maddpg_critic.reset()  # not actually needed
+
+    def update(self, samples, logger):
         """update the critics and actors of all the agents """
 
         # need to transpose each element of the samples
@@ -78,9 +85,14 @@ class MADDPG_Agent:
 
         obs_full = torch.stack(obs_full).squeeze(0)
         next_obs_full = torch.stack(next_obs_full).squeeze(0)
+        reward = torch.cat(
+            [torch.unsqueeze(x, 0) for x in transpose_to_tensor(reward)], dim=0
+        )
+        done = torch.cat(
+            [torch.unsqueeze(x, 0) for x in transpose_to_tensor(done)], dim=0
+        )
 
-        agent = self.maddpg_agent[agent_number]
-        agent.critic_optimizer.zero_grad()
+        self.maddpg_critic.critic_optimizer.zero_grad()
 
         # critic loss = batch mean of (y- Q(s,a) from target network)^2
         # y = reward of this timestep + discount * Q(st+1,at+1) from target network
@@ -92,53 +104,53 @@ class MADDPG_Agent:
         )
 
         with torch.no_grad():
-            q_next = agent.target_critic(target_critic_input)
+            q_next = self.maddpg_critic.target_critic(target_critic_input)
 
-        y = reward[agent_number].view(-1, 1) + self.discount_factor * q_next * (
-            1 - done[agent_number].view(-1, 1)
-        )
+        y = reward + self.discount_factor * q_next * (1 - done)
+
         action = torch.cat(action, dim=1)
         critic_input = torch.cat((obs_full, action), dim=1).to(device)
-        q = agent.critic(critic_input)
+        q = self.maddpg_critic.critic(critic_input)
 
         # huber_loss = torch.nn.SmoothL1Loss()
         # critic_loss = huber_loss(q, y.detach())
         mse_loss = torch.nn.MSELoss()
         critic_loss = mse_loss(q, y.detach())
         critic_loss.backward()
-        torch.nn.utils.clip_grad_norm_(agent.critic.parameters(), 0.5)
-        agent.critic_optimizer.step()
+        torch.nn.utils.clip_grad_norm_(self.maddpg_critic.critic.parameters(), 0.5)
+        self.maddpg_critic.critic_optimizer.step()
+        critic_loss = critic_loss.cpu().detach().item()
+        logger.add_scalar("critic_loss", critic_loss, self.iter)
 
         # update actor network using policy gradient
-        agent.actor_optimizer.zero_grad()
+
         # make input to agent
         # detach the other agents to save computation
         # saves some time for computing derivative
-        q_input = [
-            self.maddpg_agent[i].actor(ob)
-            if i == agent_number
-            else self.maddpg_agent[i].actor(ob).detach()
-            for i, ob in enumerate(obs)
-        ]
+        for agent_number, agent in enumerate(self.maddpg_agent):
+            agent.actor_optimizer.zero_grad()
+            all_actions = [
+                self.maddpg_agent[i].actor(ob)
+                if i == agent_number
+                else self.maddpg_agent[i].actor(ob).detach()
+                for i, ob in enumerate(obs)
+            ]
+            all_actions = torch.cat(all_actions, dim=1)
 
-        q_input = torch.cat(q_input, dim=1)
-        # combine all the actions and observations for input to critic
-        # many of the obs are redundant, and obs[1] contains all useful information already
-        q_input2 = torch.cat((obs_full, q_input), dim=1)
+            # combine all the actions and observations for input to critic
+            # many of the obs are redundant, and obs[1] contains all useful information already
+            q_input = torch.cat((obs_full, all_actions), dim=1)
 
-        # get the policy gradient
-        actor_loss = -agent.critic(q_input2).mean()
-        actor_loss.backward()
-        # torch.nn.utils.clip_grad_norm_(agent.actor.parameters(),0.5)
-        agent.actor_optimizer.step()
-
-        al = actor_loss.cpu().detach().item()
-        cl = critic_loss.cpu().detach().item()
-        logger.add_scalars(
-            "agent%i/losses" % agent_number,
-            {"critic loss": cl, "actor_loss": al},
-            self.iter,
-        )
+            # get the policy gradient
+            actor_loss = -self.maddpg_critic.critic(q_input).mean(dim=0)[agent_number]
+            actor_loss.backward()
+            # torch.nn.utils.clip_grad_norm_(agent.actor.parameters(),0.5)
+            agent.actor_optimizer.step()
+            logger.add_scalar(
+                "agent%i/actor_loss" % agent_number,
+                actor_loss.cpu().detach().item(),
+                self.iter,
+            )
 
     def update_targets(self):
         """soft update targets"""

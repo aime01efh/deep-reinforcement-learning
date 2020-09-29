@@ -101,6 +101,9 @@ def train_maddpg(
         range_iter = tqdm(range_iter)
     for episode_idx in range_iter:
         env_info = env.reset(train_mode=True)[brain_name]
+        main_agent.reset_episode()
+        noise_scale = ou_noise
+
         scores = np.zeros(num_agents)
         # obs_full: observations as returned from env_info
         # obs: per-agent observations, each just a copy of obs_full
@@ -110,7 +113,7 @@ def train_maddpg(
 
         # Run a trajectory and add steps to the replay buffer
         for episode_t in range(episode_length):
-            actions_list = [x.squeeze(0) for x in main_agent.act(obs_t, ou_noise)]
+            actions_list = [x.squeeze(0) for x in main_agent.act(obs_t, noise_scale)]
             actions = torch.stack(actions_list).unsqueeze(0).detach().numpy()
             actions = np.clip(actions, MIN_ACTION, MAX_ACTION)
             env_info = env.step(actions.squeeze(0))[brain_name]
@@ -133,7 +136,7 @@ def train_maddpg(
 
             buffer.push(transition)
 
-            ou_noise *= noise_reduction
+            noise_scale *= noise_reduction
             obs = next_obs
             if np.any(dones):
                 break
@@ -144,11 +147,10 @@ def train_maddpg(
 
         # update agents once after every episode_per_update
         if len(buffer) > batchsize and episode_idx % episodes_per_update == 0:
-            for a_i in range(num_agents):
-                samples = buffer.sample(batchsize)
-                # samples is a 7-element list: sample transitions from the replay
-                # buffer, transposed
-                main_agent.update(samples, a_i, logger)
+            samples = buffer.sample(batchsize)
+            # samples is a 7-element list: sample transitions from the replay
+            # buffer, transposed
+            main_agent.update(samples, logger)
             # soft update the target network towards the actual networks
             main_agent.update_targets()
 
