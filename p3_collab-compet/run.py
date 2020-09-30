@@ -45,14 +45,14 @@ if True:
     )
     print(ddpg_params)
 
-    batchsize = random.choice([64, 128, 512, 1024])
+    batchsize = random.choice([256, 512, 1024])
     maddpg_train.REPLAY_BUFFER_LEN = 1_000_000
-    episode_length = random.choice([100, 200, 1000])
+    episode_length = random.choice([200, 500, 1000])
     episodes_per_update = 1
-    update_iterations = 5
-    discount_factor = random.choice([1.0, 0.99, 0.98, 0.95])
+    update_iterations = random.choice([1, 5, 10])
+    discount_factor = random.choice([1.0, 0.99, 0.98])
     tau = random.choice([1e-4, 1e-3, 1e-2])
-    ou_noise = random.choice([1.0, 2.0, 4.0])
+    ou_noise = 1.0
     initial_noise_scale = random.choice([1.0, 3.0, 5.0])
     episode_noise_end = random.choice([100, 300, 1000, 5000])
     print(
