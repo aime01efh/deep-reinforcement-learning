@@ -13,8 +13,9 @@ class MADDPG_Agent:
     Manages multiple DDPG agents, each with their own actor and critic
     networks.
     """
+
     def __init__(self, num_agents, ddpg_params, discount_factor=0.95, tau=0.02):
-        # critic input = obs_full + actions = 14+2+2+2=20
+        # critic input = obs_full + all agent actions
         self.maddpg_agent: List[DDPGAgent] = []
         for _ in range(num_agents):
             self.maddpg_agent.append(DDPGAgent(ddpg_params))

@@ -20,7 +20,8 @@ EPISODES_PER_UPDATE = 2
 DISCOUNT_FACTOR = 0.99
 TAU = 0.001
 OU_NOISE = 1.0
-NOISE_REDUCTION = 0.9999
+INITIAL_NOISE_SCALE = 5.0
+EPISODE_NOISE_END = 300  # OU noise scales to 0 after this many episodes
 
 # Default neural network sizes
 HIDDEN_IN_ACTOR = 128
@@ -63,7 +64,9 @@ def train_maddpg(
     episodes_per_update=EPISODES_PER_UPDATE,
     score_history=None,
     ou_noise=OU_NOISE,
-    noise_reduction=NOISE_REDUCTION,
+    noise_scale=INITIAL_NOISE_SCALE,
+    episode_noise_end=EPISODE_NOISE_END,
+    min_noise_scale=0.0,
     random_seed=237,
     save_interval=1000,
     report_every=100,
@@ -75,6 +78,8 @@ def train_maddpg(
     seeding(random_seed)
     if score_history is None:
         score_history = []
+
+    noise_step_reduce = 1.0 / (episode_noise_end * episodes_per_update)
 
     # keep track of last 100 scores
     scores_window = deque(maxlen=GOAL_WINDOW_LEN)
@@ -106,7 +111,7 @@ def train_maddpg(
             num_agents,
             episode_length,
             buffer,
-            noise_reduction,
+            noise_scale,
         )
 
         episode_score = np.max(scores)
@@ -121,6 +126,8 @@ def train_maddpg(
             main_agent.update(samples, logger)
             # soft update the target network towards the actual networks
             main_agent.update_targets()
+            noise_scale -= noise_step_reduce
+            noise_scale = max(noise_scale, min_noise_scale)
 
         for i in range(num_agents):
             agent_rewards[i].append(scores[i])
@@ -187,7 +194,7 @@ def log_episode(logger, scores_window, episode_idx, agent_rewards, episode_score
 
 
 def run_one_episode(
-    env, main_agent, ou_noise, num_agents, episode_length, buffer, noise_reduction,
+    env, main_agent, ou_noise, num_agents, episode_length, buffer, noise_scale,
 ):
     """Run one episode, adding steps to the replay buffer"""
 
@@ -229,7 +236,6 @@ def run_one_episode(
 
         buffer.push(transition)
 
-        noise_scale *= noise_reduction
         obs = next_obs
         if np.any(dones):
             break

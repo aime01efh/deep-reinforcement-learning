@@ -52,14 +52,16 @@ if True:
     discount_factor = random.choice([1.0, 0.99, 0.98, 0.95])
     tau = random.choice([1e-4, 1e-3, 1e-2])
     ou_noise = random.choice([1.0, 2.0, 4.0])
-    noise_reduction = random.choice([0.99995, 0.9999, 0.9999])
+    initial_noise_scale = random.choice([1.0, 3.0, 5.0])
+    episode_noise_end = [100, 300, 1000, 5000]
     print(
         f"batchsize={batchsize}, "
         f"replay_buffer_len={maddpg_train.REPLAY_BUFFER_LEN}, "
         f"episode_length={episode_length}, "
         f"episodes_per_update={episodes_per_update}, "
         f"discount_factor={discount_factor},"
-        f"tau={tau}, ou_noise={ou_noise}, noise_reduction={noise_reduction}"
+        f"tau={tau}, initial_noise_scale={initial_noise_scale}, "
+        f"episode_noise_end={episode_noise_end}"
     )
 
     agent = maddpg_agent.MADDPG_Agent(
@@ -80,7 +82,8 @@ if True:
         episode_length=episode_length,
         episodes_per_update=episodes_per_update,
         ou_noise=ou_noise,
-        noise_reduction=noise_reduction,
+        noise_scale=initial_noise_scale,
+        episode_noise_end=episode_noise_end,
         progressbar=False,
     )
 
