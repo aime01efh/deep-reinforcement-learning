@@ -118,7 +118,7 @@ class MADDPG_Agent:
         mse_loss = torch.nn.MSELoss()
         critic_loss = mse_loss(q, y.detach())
         critic_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.maddpg_critic.critic.parameters(), 0.5)
+        torch.nn.utils.clip_grad_norm_(self.maddpg_critic.critic.parameters(), 1.0)
         self.maddpg_critic.critic_optimizer.step()
         critic_loss = critic_loss.cpu().detach().item()
         logger.add_scalar("critic_loss", critic_loss, self.iter)
