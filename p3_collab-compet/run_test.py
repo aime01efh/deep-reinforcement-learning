@@ -48,7 +48,8 @@ print(ddpg_params)
 batchsize = 512
 maddpg_train.REPLAY_BUFFER_LEN = 1_000_000
 episode_length = 512
-episodes_per_update = 4
+episodes_per_update = 1
+update_iterations = 5
 discount_factor = 0.99  # gamma
 tau = 1e-3
 ou_noise = 0.5
@@ -59,6 +60,7 @@ print(
     f"replay_buffer_len={maddpg_train.REPLAY_BUFFER_LEN}, "
     f"episode_length={episode_length}, "
     f"episodes_per_update={episodes_per_update}, "
+    f"update_iterations={update_iterations}, "
     f"discount_factor={discount_factor},"
     f"tau={tau}, initial_noise_scale={initial_noise_scale}, "
     f"episode_noise_end={episode_noise_end}"
@@ -81,6 +83,7 @@ maddpg_train.train_maddpg(
     batchsize=batchsize,
     episode_length=episode_length,
     episodes_per_update=episodes_per_update,
+    update_iterations=update_iterations,
     ou_noise=ou_noise,
     noise_scale=initial_noise_scale,
     episode_noise_end=episode_noise_end,

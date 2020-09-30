@@ -48,7 +48,8 @@ if True:
     batchsize = random.choice([64, 128, 512, 1024])
     maddpg_train.REPLAY_BUFFER_LEN = 1_000_000
     episode_length = random.choice([100, 200, 1000])
-    episodes_per_update = random.choice([1, 2, 4, 8])
+    episodes_per_update = 1
+    update_iterations = 5
     discount_factor = random.choice([1.0, 0.99, 0.98, 0.95])
     tau = random.choice([1e-4, 1e-3, 1e-2])
     ou_noise = random.choice([1.0, 2.0, 4.0])
@@ -59,6 +60,7 @@ if True:
         f"replay_buffer_len={maddpg_train.REPLAY_BUFFER_LEN}, "
         f"episode_length={episode_length}, "
         f"episodes_per_update={episodes_per_update}, "
+        f"update_iteration={update_iterations}, "
         f"discount_factor={discount_factor}, "
         f"tau={tau}, initial_noise_scale={initial_noise_scale}, "
         f"episode_noise_end={episode_noise_end}"

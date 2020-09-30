@@ -17,6 +17,7 @@ LEARN_RATE = 1e-3
 BATCHSIZE = 1024
 EPISODE_LENGTH = 80
 EPISODES_PER_UPDATE = 2
+UPDATE_ITERATIONS = 5
 DISCOUNT_FACTOR = 0.99
 TAU = 0.001
 OU_NOISE = 1.0
@@ -62,6 +63,7 @@ def train_maddpg(
     batchsize=BATCHSIZE,
     episode_length=EPISODE_LENGTH,
     episodes_per_update=EPISODES_PER_UPDATE,
+    update_iterations=UPDATE_ITERATIONS,
     score_history=None,
     ou_noise=OU_NOISE,
     noise_scale=INITIAL_NOISE_SCALE,
@@ -120,12 +122,13 @@ def train_maddpg(
 
         # update agents once after every episode_per_update
         if len(buffer) > batchsize and episode_idx % episodes_per_update == 0:
-            samples = buffer.sample(batchsize)
-            # samples is a 7-element list: sample transitions from the replay
-            # buffer, transposed
-            main_agent.update(samples, logger)
-            # soft update the target network towards the actual networks
-            main_agent.update_targets()
+            for _ in range(update_iterations):
+                samples = buffer.sample(batchsize)
+                # samples is a 7-element list: sample transitions from the replay
+                # buffer, transposed
+                main_agent.update(samples, logger)
+                # soft update the target network towards the actual networks
+                main_agent.update_targets()
             noise_scale -= noise_step_reduce
             noise_scale = max(noise_scale, min_noise_scale)
 
