@@ -82,7 +82,6 @@ if True:
         ou_noise=ou_noise,
         noise_reduction=noise_reduction,
         progressbar=False,
-        stopearly=5000,
     )
 
 # if True:

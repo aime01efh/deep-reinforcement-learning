@@ -69,7 +69,6 @@ def train_maddpg(
     report_every=100,
     score_goal=0.5,
     progressbar=True,
-    stopearly=None,  # stop after this # episodes if all windows means are <1e-5
 ):
     """Perform MADDPG agent training
     """
@@ -79,7 +78,6 @@ def train_maddpg(
 
     # keep track of last 100 scores
     scores_window = deque(maxlen=GOAL_WINDOW_LEN)
-    all_window_means = []
 
     brain_name = env.brain_names[0]
     env_info = env.reset(train_mode=True)[brain_name]
@@ -99,47 +97,17 @@ def train_maddpg(
     range_iter = range(num_episodes)
     if progressbar:
         range_iter = tqdm(range_iter)
+
     for episode_idx in range_iter:
-        env_info = env.reset(train_mode=True)[brain_name]
-        main_agent.reset_episode()
-        noise_scale = ou_noise
-
-        scores = np.zeros(num_agents)
-        # obs_full: observations as returned from env_info
-        # obs: per-agent observations, each just a copy of obs_full
-        obs, obs_full = get_train_obs(env_info)
-
-        obs_t = transpose_to_tensor(obs)
-
-        # Run a trajectory and add steps to the replay buffer
-        for episode_t in range(episode_length):
-            actions_list = [x.squeeze(0) for x in main_agent.act(obs_t, noise_scale)]
-            actions = torch.stack(actions_list).unsqueeze(0).detach().numpy()
-            actions = np.clip(actions, MIN_ACTION, MAX_ACTION)
-            env_info = env.step(actions.squeeze(0))[brain_name]
-            next_obs, next_obs_full = get_train_obs(env_info)
-            rewards_2d = [env_info.rewards]
-            dones = env_info.local_done
-            dones_2d = [dones]
-            scores += env_info.rewards
-
-            # add data to buffer
-            transition = (
-                obs,
-                obs_full,
-                actions,
-                rewards_2d,
-                next_obs,
-                next_obs_full,
-                dones_2d,
-            )
-
-            buffer.push(transition)
-
-            noise_scale *= noise_reduction
-            obs = next_obs
-            if np.any(dones):
-                break
+        scores = run_one_episode(
+            env,
+            main_agent,
+            ou_noise,
+            num_agents,
+            episode_length,
+            buffer,
+            noise_reduction,
+        )
 
         episode_score = np.max(scores)
         scores_window.append(episode_score)
@@ -160,45 +128,14 @@ def train_maddpg(
         # Reporting
         logger.add_scalar("scores/episode_score", episode_score, episode_idx)
         if (episode_idx + 1) % report_every == 0 or episode_idx == num_episodes - 1:
-            logger.add_scalar(
-                "scores/mean_window_score", np.mean(scores_window), episode_idx
+            log_episode(
+                logger, scores_window, episode_idx, agent_rewards, episode_score,
             )
-            logger.add_scalar("ou_noise", ou_noise, episode_idx)
-
-            for a_i, ag_rewards in enumerate(agent_rewards):
-                logger.add_scalar(
-                    "agent%i/rewards/mean_window_reward" % a_i,
-                    np.mean(ag_rewards),
-                    episode_idx,
-                )
-
-            print(
-                "Episode: {0:d}, score: {1:f}, window mean: {2:f}".format(
-                    episode_idx + 1, episode_score, np.mean(scores_window)
-                )
-            )
-
-            all_window_means.append(np.mean(scores_window))
-            if stopearly and episode_idx >= stopearly and max(all_window_means) < 1e-4:
-                print("Giving up early, not looking good")
-                break
 
         # Saving model
         if (episode_idx + 1) % save_interval == 0 or episode_idx == num_episodes - 1:
             save_dict_list = []
-            for agent in main_agent.maddpg_agent:
-                save_dict = {
-                    "actor_params": agent.actor.state_dict(),
-                    "actor_optim_params": agent.actor_optimizer.state_dict(),
-                    "critic_params": agent.critic.state_dict(),
-                    "critic_optim_params": agent.critic_optimizer.state_dict(),
-                }
-                save_dict_list.append(save_dict)
-
-            torch.save(
-                save_dict_list,
-                os.path.join(model_dir, "episode-{}.pt".format(episode_idx)),
-            )
+            save_model(main_agent, save_dict_list, model_dir, episode_idx)
 
         # See if we're good enough to stop
         if np.mean(scores_window) >= score_goal:
@@ -214,3 +151,86 @@ def train_maddpg(
     logger.close()
 
     return score_history
+
+
+def save_model(main_agent, save_dict_list, model_dir, episode_idx):
+    """Save current model parameters"""
+    for agent in main_agent.maddpg_agent:
+        save_dict = {
+            "actor_params": agent.actor.state_dict(),
+            "actor_optim_params": agent.actor_optimizer.state_dict(),
+            "critic_params": agent.critic.state_dict(),
+            "critic_optim_params": agent.critic_optimizer.state_dict(),
+        }
+        save_dict_list.append(save_dict)
+
+    torch.save(
+        save_dict_list, os.path.join(model_dir, "episode-{}.pt".format(episode_idx)),
+    )
+
+
+def log_episode(logger, scores_window, episode_idx, agent_rewards, episode_score):
+    logger.add_scalar("scores/mean_window_score", np.mean(scores_window), episode_idx)
+    """Log metrics from current episode"""
+    for a_i, ag_rewards in enumerate(agent_rewards):
+        logger.add_scalar(
+            "agent%i/rewards/mean_window_reward" % a_i,
+            np.mean(ag_rewards),
+            episode_idx,
+        )
+
+    print(
+        "Episode: {0:d}, score: {1:f}, window mean: {2:f}".format(
+            episode_idx + 1, episode_score, np.mean(scores_window)
+        )
+    )
+
+
+def run_one_episode(
+    env, main_agent, ou_noise, num_agents, episode_length, buffer, noise_reduction,
+):
+    """Run one episode, adding steps to the replay buffer"""
+
+    brain_name = env.brain_names[0]
+
+    env_info = env.reset(train_mode=True)[brain_name]
+    main_agent.reset_episode()
+    noise_scale = ou_noise
+
+    scores = np.zeros(num_agents)
+    # obs_full: observations as returned from env_info
+    # obs: per-agent observations, each just a copy of obs_full
+    obs, obs_full = get_train_obs(env_info)
+
+    obs_t = transpose_to_tensor(obs)
+
+    # Run a trajectory and add steps to the replay buffer
+    for _ in range(episode_length):
+        actions_list = [x.squeeze(0) for x in main_agent.act(obs_t, noise_scale)]
+        actions = torch.stack(actions_list).unsqueeze(0).detach().numpy()
+        actions = np.clip(actions, MIN_ACTION, MAX_ACTION)
+        env_info = env.step(actions.squeeze(0))[brain_name]
+        next_obs, next_obs_full = get_train_obs(env_info)
+        rewards_2d = [env_info.rewards]
+        dones = env_info.local_done
+        dones_2d = [dones]
+        scores += env_info.rewards
+
+        # add data to buffer
+        transition = (
+            obs,
+            obs_full,
+            actions,
+            rewards_2d,
+            next_obs,
+            next_obs_full,
+            dones_2d,
+        )
+
+        buffer.push(transition)
+
+        noise_scale *= noise_reduction
+        obs = next_obs
+        if np.any(dones):
+            break
+    return scores
