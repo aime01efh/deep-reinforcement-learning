@@ -53,7 +53,7 @@ if True:
     tau = random.choice([1e-4, 1e-3, 1e-2])
     ou_noise = random.choice([1.0, 2.0, 4.0])
     initial_noise_scale = random.choice([1.0, 3.0, 5.0])
-    episode_noise_end = [100, 300, 1000, 5000]
+    episode_noise_end = random.choice([100, 300, 1000, 5000])
     print(
         f"batchsize={batchsize}, "
         f"replay_buffer_len={maddpg_train.REPLAY_BUFFER_LEN}, "
