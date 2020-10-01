@@ -46,27 +46,31 @@ ddpg_params = ddpg_agent.NNParams(
 print(ddpg_params)
 
 batchsize = 512
-maddpg_train.REPLAY_BUFFER_LEN = 1_000_000
 episode_length = 512
-episodes_per_update = 1
+update_step_interval = 1
 update_iterations = 5
-discount_factor = 0.99  # gamma
+discount_factor = 0.99
 tau = 1e-3
-ou_noise = 0.5
 initial_noise_scale = 5.0
+min_noise_scale = 0.0
 episode_noise_end = 300
-print(
-    f"batchsize={batchsize}, "
-    f"replay_buffer_len={maddpg_train.REPLAY_BUFFER_LEN}, "
-    f"episode_length={episode_length}, "
-    f"episodes_per_update={episodes_per_update}, "
-    f"update_iterations={update_iterations}, "
-    f"discount_factor={discount_factor},"
-    f"tau={tau}, initial_noise_scale={initial_noise_scale}, "
-    f"episode_noise_end={episode_noise_end}"
-)
+replay_buffer_len = 1_000_000
 
-agent = maddpg_agent.MADDPG_Agent(
+maddpg_params = maddpg_train.MADDPG_Params(
+    batchsize=batchsize,
+    episode_length=episode_length,
+    update_step_interval=update_step_interval,
+    update_iterations=update_iterations,
+    discount_factor=discount_factor,
+    tau=tau,
+    initial_noise_scale=initial_noise_scale,
+    min_noise_scale=min_noise_scale,
+    episode_noise_end=episode_noise_end,
+    replay_buffer_len=replay_buffer_len,
+)
+print(maddpg_params)
+
+maddpg_agent = maddpg_agent.MADDPG_Agent(
     num_agents=num_agents,
     ddpg_params=ddpg_params,
     discount_factor=discount_factor,
@@ -76,15 +80,8 @@ agent = maddpg_agent.MADDPG_Agent(
 score_history = []
 maddpg_train.train_maddpg(
     env,
-    agent,
-    report_every=200,
+    maddpg_agent,
+    maddpg_params=maddpg_params,
     num_episodes=10000,
     score_history=score_history,
-    batchsize=batchsize,
-    episode_length=episode_length,
-    episodes_per_update=episodes_per_update,
-    update_iterations=update_iterations,
-    ou_noise=ou_noise,
-    noise_scale=initial_noise_scale,
-    episode_noise_end=episode_noise_end,
 )

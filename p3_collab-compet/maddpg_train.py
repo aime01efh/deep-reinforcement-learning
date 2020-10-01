@@ -1,6 +1,7 @@
 from maddpg_agent import MADDPG_Agent
 import os
 from collections import deque
+from typing import NamedTuple
 
 from utilities import transpose_to_tensor
 from buffer import ReplayBuffer
@@ -10,33 +11,23 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 
-# Default hyperparameters - some set per suggestions from
-#   https://knowledge.udacity.com/questions/315134
-NUM_EPISODES = 3000
-LEARN_RATE = 1e-3
-BATCHSIZE = 1024
-EPISODE_LENGTH = 80
-EPISODES_PER_UPDATE = 2
-UPDATE_ITERATIONS = 5
-DISCOUNT_FACTOR = 0.99
-TAU = 0.001
-OU_NOISE = 1.0
-INITIAL_NOISE_SCALE = 5.0
-EPISODE_NOISE_END = 300  # OU noise scales to 0 after this many episodes
-
-# Default neural network sizes
-HIDDEN_IN_ACTOR = 128
-HIDDEN_OUT_ACTOR = 64
-HIDDEN_IN_CRITIC = 256
-HIDDEN_OUT_CRITIC = 128
-LR_ACTOR = 1.0e-4
-LR_CRITIC = 3.0e-4
-
 GOAL_WINDOW_LEN = 100
-REPLAY_BUFFER_LEN = 100000
-
+SCORE_GOAL = 0.5
 MIN_ACTION = -1.0
 MAX_ACTION = 1.0
+
+
+class MADDPG_Params(NamedTuple):
+    batchsize: int
+    episode_length: int
+    update_step_interval: int
+    update_iterations: int
+    discount_factor: float  # gamma
+    tau: float
+    initial_noise_scale: float
+    min_noise_scale: float
+    episode_noise_end: int
+    replay_buffer_len: int
 
 
 def seeding(random_seed=1):
@@ -56,23 +47,29 @@ def get_train_obs(env_info):
     return obs, obs_full
 
 
+class NoiseScaler:
+    def __init__(self, p: MADDPG_Params):
+        self.noise_scale = p.initial_noise_scale
+        self.noise_step_reduce = 1.0 / (
+            p.episode_noise_end * p.episode_length * p.update_iterations
+        )
+        self.min_noise_scale = p.min_noise_scale
+
+    def step(self):
+        self.noise_scale -= self.noise_step_reduce
+        self.noise_scale = max(self.noise_scale, self.min_noise_scale)
+
+
 def train_maddpg(
     env,
     main_agent: MADDPG_Agent,
-    num_episodes=NUM_EPISODES,
-    batchsize=BATCHSIZE,
-    episode_length=EPISODE_LENGTH,
-    episodes_per_update=EPISODES_PER_UPDATE,
-    update_iterations=UPDATE_ITERATIONS,
+    maddpg_params: MADDPG_Params,
+    num_episodes: int,
     score_history=None,
-    ou_noise=OU_NOISE,
-    noise_scale=INITIAL_NOISE_SCALE,
-    episode_noise_end=EPISODE_NOISE_END,
-    min_noise_scale=0.0,
+    score_goal=SCORE_GOAL,
     random_seed=237,
     save_interval=1000,
-    report_every=100,
-    score_goal=0.5,
+    report_every=200,
     progressbar=True,
 ):
     """Perform MADDPG agent training
@@ -80,11 +77,9 @@ def train_maddpg(
     seeding(random_seed)
     if score_history is None:
         score_history = []
-
-    noise_step_reduce = 1.0 / (episode_noise_end * episodes_per_update)
-
-    # keep track of last 100 scores
     scores_window = deque(maxlen=GOAL_WINDOW_LEN)
+
+    noise_scaler = NoiseScaler(maddpg_params)
 
     brain_name = env.brain_names[0]
     env_info = env.reset(train_mode=True)[brain_name]
@@ -94,7 +89,7 @@ def train_maddpg(
     model_dir = os.getcwd() + "/model_dir"
     os.makedirs(model_dir, exist_ok=True)
 
-    buffer = ReplayBuffer(REPLAY_BUFFER_LEN)
+    replay_buffer = ReplayBuffer(maddpg_params.replay_buffer_len)
     logger = SummaryWriter(log_dir=log_path)
 
     agent_rewards = []
@@ -107,30 +102,12 @@ def train_maddpg(
 
     for episode_idx in range_iter:
         scores = run_one_episode(
-            env,
-            main_agent,
-            ou_noise,
-            num_agents,
-            episode_length,
-            buffer,
-            noise_scale,
+            env, main_agent, maddpg_params, replay_buffer, noise_scaler, logger
         )
 
         episode_score = np.max(scores)
         scores_window.append(episode_score)
         score_history.append(episode_score)
-
-        # update agents once after every episode_per_update
-        if len(buffer) > batchsize and episode_idx % episodes_per_update == 0:
-            for _ in range(update_iterations):
-                samples = buffer.sample(batchsize)
-                # samples is a 7-element list: sample transitions from the replay
-                # buffer, transposed
-                main_agent.update(samples, logger)
-                # soft update the target network towards the actual networks
-                main_agent.update_targets()
-            noise_scale -= noise_step_reduce
-            noise_scale = max(noise_scale, min_noise_scale)
 
         for i in range(num_agents):
             agent_rewards[i].append(scores[i])
@@ -197,7 +174,12 @@ def log_episode(logger, scores_window, episode_idx, agent_rewards, episode_score
 
 
 def run_one_episode(
-    env, main_agent, ou_noise, num_agents, episode_length, buffer, noise_scale,
+    env,
+    main_agent: MADDPG_Agent,
+    p: MADDPG_Params,
+    buffer: ReplayBuffer,
+    noise_scaler: NoiseScaler,
+    logger,
 ):
     """Run one episode, adding steps to the replay buffer"""
 
@@ -205,18 +187,19 @@ def run_one_episode(
 
     env_info = env.reset(train_mode=True)[brain_name]
     main_agent.reset_episode()
-    noise_scale = ou_noise
 
-    scores = np.zeros(num_agents)
+    scores = np.zeros(len(main_agent.maddpg_agent))
     # obs_full: observations as returned from env_info
     # obs: per-agent observations, each just a copy of obs_full
     obs, obs_full = get_train_obs(env_info)
 
     obs_t = transpose_to_tensor(obs)
 
-    # Run a trajectory and add steps to the replay buffer
-    for _ in range(episode_length):
-        actions_list = [x.squeeze(0) for x in main_agent.act(obs_t, noise_scale)]
+    # Run a trajectory, adding steps to the replay buffer and updating networks
+    for step_num in range(p.episode_length):
+        actions_list = [
+            x.squeeze(0) for x in main_agent.act(obs_t, noise_scaler.noise_scale)
+        ]
         actions = torch.stack(actions_list).unsqueeze(0).detach().numpy()
         actions = np.clip(actions, MIN_ACTION, MAX_ACTION)
         env_info = env.step(actions.squeeze(0))[brain_name]
@@ -239,7 +222,19 @@ def run_one_episode(
 
         buffer.push(transition)
 
+        # update agents once after every episode_per_update
+        if len(buffer) > p.batchsize and step_num % p.update_step_interval == 0:
+            for _ in range(p.update_iterations):
+                samples = buffer.sample(p.batchsize)
+                # samples is a 7-element list: sample transitions from the replay
+                # buffer, transposed
+                main_agent.update(samples, logger if step_num == 0 else None)
+                # soft update the target network towards the actual networks
+                main_agent.update_targets()
+                noise_scaler.step()
+
         obs = next_obs
         if np.any(dones):
             break
+
     return scores

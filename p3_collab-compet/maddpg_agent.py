@@ -121,7 +121,8 @@ class MADDPG_Agent:
         torch.nn.utils.clip_grad_norm_(self.maddpg_critic.critic.parameters(), 1.0)
         self.maddpg_critic.critic_optimizer.step()
         critic_loss = critic_loss.cpu().detach().item()
-        logger.add_scalar("critic_loss", critic_loss, self.iter)
+        if logger:
+            logger.add_scalar("critic_loss", critic_loss, self.iter)
 
         # update actor network using policy gradient
 
@@ -147,11 +148,12 @@ class MADDPG_Agent:
             actor_loss.backward()
             # torch.nn.utils.clip_grad_norm_(agent.actor.parameters(),0.5)
             agent.actor_optimizer.step()
-            logger.add_scalar(
-                "agent%i/actor_loss" % agent_number,
-                actor_loss.cpu().detach().item(),
-                self.iter,
-            )
+            if logger:
+                logger.add_scalar(
+                    "agent%i/actor_loss" % agent_number,
+                    actor_loss.cpu().detach().item(),
+                    self.iter,
+                )
 
     def update_targets(self):
         """soft update targets"""
