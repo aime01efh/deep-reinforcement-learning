@@ -69,7 +69,7 @@ def train_maddpg(
     score_goal=SCORE_GOAL,
     random_seed=237,
     save_interval=1000,
-    report_every=200,
+    report_every=100,
     progressbar=True,
 ):
     """Perform MADDPG agent training

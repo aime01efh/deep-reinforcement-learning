@@ -6,7 +6,7 @@ from networkforall import Network
 from utilities import hard_update  # , gumbel_softmax, onehot_from_logits
 from torch.optim import Adam
 
-# import torch
+import torch
 # import numpy as np
 
 # add OU noise for exploration
@@ -30,8 +30,8 @@ class NNParams(NamedTuple):
     dropout: float
 
 
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = "cpu"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = "cpu"
 
 
 class DDPGAgent:
@@ -93,7 +93,7 @@ class DDPGAgent:
         with OU noise added that is scaled by the value of the "noise" parameter
         """
         obs = obs.to(device)
-        action = self.actor(obs) + noise * self.noise.noise()
+        action = self.actor(obs).cpu() + noise * self.noise.noise()
         return action
 
     def target_act(self, obs, noise=0.0):
@@ -101,7 +101,7 @@ class DDPGAgent:
         with OU noise added that is scaled by the value of the "noise" parameter
         """
         obs = obs.to(device)
-        action = self.target_actor(obs) + noise * self.noise.noise()
+        action = self.target_actor(obs).cpu() + noise * self.noise.noise()
         return action
 
     def reset(self):

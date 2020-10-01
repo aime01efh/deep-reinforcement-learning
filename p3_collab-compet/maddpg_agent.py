@@ -84,21 +84,21 @@ class MADDPG_Agent:
             transpose_to_tensor, samples
         )
 
-        obs_full = torch.stack(obs_full).squeeze(0)
-        next_obs_full = torch.stack(next_obs_full).squeeze(0)
+        obs_full = torch.stack(obs_full).squeeze(0).to(device)
+        next_obs_full = torch.stack(next_obs_full).squeeze(0).to(device)
         reward = torch.cat(
             [torch.unsqueeze(x, 0) for x in transpose_to_tensor(reward)], dim=0
-        )
+        ).to(device)
         done = torch.cat(
             [torch.unsqueeze(x, 0) for x in transpose_to_tensor(done)], dim=0
-        )
+        ).to(device)
 
         self.maddpg_critic.critic_optimizer.zero_grad()
 
         # critic loss = batch mean of (y- Q(s,a) from target network)^2
         # y = reward of this timestep + discount * Q(st+1,at+1) from target network
         target_actions = self.target_act(next_obs)
-        target_actions = torch.cat(target_actions, dim=1)
+        target_actions = torch.cat(target_actions, dim=1).to(device)
 
         target_critic_input = torch.cat((next_obs_full, target_actions), dim=1).to(
             device
@@ -109,8 +109,8 @@ class MADDPG_Agent:
 
         y = reward + self.discount_factor * q_next * (1 - done)
 
-        action = torch.cat(action, dim=1)
-        critic_input = torch.cat((obs_full, action), dim=1).to(device)
+        action = torch.cat(action, dim=1).to(device)
+        critic_input = torch.cat((obs_full, action), dim=1)
         q = self.maddpg_critic.critic(critic_input)
 
         # huber_loss = torch.nn.SmoothL1Loss()
@@ -132,9 +132,9 @@ class MADDPG_Agent:
         for agent_number, agent in enumerate(self.maddpg_agent):
             agent.actor_optimizer.zero_grad()
             all_actions = [
-                self.maddpg_agent[i].actor(ob)
+                self.maddpg_agent[i].actor(ob.to(device))
                 if i == agent_number
-                else self.maddpg_agent[i].actor(ob).detach()
+                else self.maddpg_agent[i].actor(ob.to(device)).detach()
                 for i, ob in enumerate(obs)
             ]
             all_actions = torch.cat(all_actions, dim=1)
