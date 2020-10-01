@@ -14,7 +14,7 @@ class MADDPG_Agent:
     networks.
     """
 
-    def __init__(self, num_agents, ddpg_params, discount_factor=0.95, tau=0.02):
+    def __init__(self, num_agents, ddpg_params, discount_factor, tau):
         # critic input = obs_full + all agent actions
         self.maddpg_agent: List[DDPGAgent] = []
         for _ in range(num_agents):
@@ -93,8 +93,6 @@ class MADDPG_Agent:
             [torch.unsqueeze(x, 0) for x in transpose_to_tensor(done)], dim=0
         ).to(device)
 
-        self.maddpg_critic.critic_optimizer.zero_grad()
-
         # critic loss = batch mean of (y- Q(s,a) from target network)^2
         # y = reward of this timestep + discount * Q(st+1,at+1) from target network
         target_actions = self.target_act(next_obs)
@@ -104,8 +102,7 @@ class MADDPG_Agent:
             device
         )
 
-        with torch.no_grad():
-            q_next = self.maddpg_critic.target_critic(target_critic_input)
+        q_next = self.maddpg_critic.target_critic(target_critic_input)
 
         y = reward + self.discount_factor * q_next * (1 - done)
 
@@ -117,9 +114,11 @@ class MADDPG_Agent:
         # critic_loss = huber_loss(q, y.detach())
         mse_loss = torch.nn.MSELoss()
         critic_loss = mse_loss(q, y.detach())
+        self.maddpg_critic.critic_optimizer.zero_grad()
         critic_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.maddpg_critic.critic.parameters(), 1.0)
         self.maddpg_critic.critic_optimizer.step()
+
         critic_loss = critic_loss.cpu().detach().item()
         if logger:
             logger.add_scalar("critic_loss", critic_loss, self.iter)
@@ -130,7 +129,6 @@ class MADDPG_Agent:
         # detach the other agents to save computation
         # saves some time for computing derivative
         for agent_number, agent in enumerate(self.maddpg_agent):
-            agent.actor_optimizer.zero_grad()
             all_actions = [
                 self.maddpg_agent[i].actor(ob.to(device))
                 if i == agent_number
@@ -145,6 +143,7 @@ class MADDPG_Agent:
 
             # get the policy gradient
             actor_loss = -self.maddpg_critic.critic(q_input).mean(dim=0)[agent_number]
+            agent.actor_optimizer.zero_grad()
             actor_loss.backward()
             # torch.nn.utils.clip_grad_norm_(agent.actor.parameters(),0.5)
             agent.actor_optimizer.step()
