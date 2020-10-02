@@ -30,7 +30,7 @@ lr_actor = 5e-4
 lr_critic = 1e-3
 dropout = 0.2
 
-ddpg_params = ddpg_agent.NNParams(
+ddpg_params = ddpg_agent.NN_Params(
     in_actor=in_actor_size,
     hidden_in_actor=hidden_in_actor,
     hidden_out_actor=hidden_out_actor,

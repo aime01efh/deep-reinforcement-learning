@@ -193,12 +193,15 @@ def run_one_episode(
 
     # Run a trajectory, adding steps to the replay buffer and updating networks
     for step_num in range(p.episode_length):
+        # select actions for all agents
         obs_t = transpose_to_tensor(obs)
         actions_list = [
             x.squeeze(0) for x in main_agent.act(obs_t, noise_scaler.noise_scale)
         ]
         actions = torch.stack(actions_list).unsqueeze(0).detach().numpy()
         actions = np.clip(actions, MIN_ACTION, MAX_ACTION)
+
+        # provide actions to environment and extract results
         env_info = env.step(actions.squeeze(0))[brain_name]
         next_obs, next_obs_full = get_train_obs(env_info)
         rewards_2d = [env_info.rewards]
@@ -219,13 +222,13 @@ def run_one_episode(
 
         buffer.push(transition)
 
-        # update agents once after every episode_per_update
+        # update agents update_iterations times after every update_step_interval steps
         if len(buffer) > p.batchsize and step_num % p.update_step_interval == 0:
             for _ in range(p.update_iterations):
                 samples = buffer.sample(p.batchsize)
                 # samples is a 7-element list: sample transitions from the replay
                 # buffer, transposed
-                main_agent.update(samples, logger if step_num == 0 else None)
+                main_agent.update(samples, logger if step_num % 50 == 0 else None)
                 # soft update the target network towards the actual networks
                 main_agent.update_targets()
 

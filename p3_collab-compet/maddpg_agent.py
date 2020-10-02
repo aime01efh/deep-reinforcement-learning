@@ -85,7 +85,17 @@ class MADDPG_Agent:
             transpose_to_tensor, samples
         )
 
-        # update the central critic network
+        # -- update the central critic network --
+        # for each replay buffer sample (vectorized):
+        #   for each agent:
+        #     use target actor NN and agent's next_obs to get agent's target_actions
+        #   concat next_obs_full and all agent target_actions as critic input
+        #   use this critic input with central target critic to get Qnext
+        #   y = sample's reward + discounted Qnext
+        #
+        #   concat obs_full and all agent sample actions as critic input
+        #   use this critic input with central local critic to get q
+        #   optimize MSE loss between q and y, updating local critic
 
         obs_full = torch.stack(obs_full).squeeze(0).to(device)
         next_obs_full = torch.stack(next_obs_full).squeeze(0).to(device)
@@ -121,29 +131,40 @@ class MADDPG_Agent:
         if logger:
             logger.add_scalar("critic_loss", critic_loss, self.iter)
 
-        # update each actor network using policy gradient
+        # -- update each actor network using policy gradient --
+        # for each agent:
+        #   for each replay buffer sample (vectorized):
+        #     use local actor NN and agent's obs to get all agents' new actions
+        #       (detach networks of all agents except the one being trained)
+        #     concat obs_full and all agent new actions as critic input
+        #     use this critic input with central local critic to get Q for all agents
+        #     select agent's Q value, negative, use as loss function to optimizer
+        #       of agent's local actor NN
 
         for agent_number, agent in enumerate(self.maddpg_agent):
             # make input to agent
             # detach the other agents to save time computing derivative
-            all_actions = []
+            new_actions = []
             for i, ob in enumerate(obs):
                 this_agent_action = self.maddpg_agent[i].actor(ob.to(device))
                 if i == agent_number:
                     this_agent_action.detach()
-                all_actions.append(this_agent_action)
-            all_actions = torch.cat(all_actions, dim=1)
+                new_actions.append(this_agent_action)
+            new_actions = torch.cat(new_actions, dim=1)
 
             # combine all the actions and observations for input to critic
             # many of the obs are redundant, and obs[1] contains all useful information already
-            q_input = torch.cat((obs_full, all_actions), dim=1)
+            critic_input = torch.cat((obs_full, new_actions), dim=1)
 
             # get the policy gradient for this agent
-            actor_loss = -self.maddpg_critic.critic(q_input).mean(dim=0)[agent_number]
+            actor_loss = -self.maddpg_critic.critic(critic_input).mean(dim=0)[
+                agent_number
+            ]
             agent.actor_optimizer.zero_grad()
             actor_loss.backward()
             # torch.nn.utils.clip_grad_norm_(agent.actor.parameters(),0.5)
             agent.actor_optimizer.step()
+
             if logger:
                 logger.add_scalar(
                     "agent%i/actor_loss" % agent_number,

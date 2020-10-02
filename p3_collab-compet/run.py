@@ -30,7 +30,7 @@ if True:
     lr_critic = random.choice([1e-5, 1e-4, 1e-3, 1e-2])
     dropout = random.choice([0.1, 0.2, 0.3, 0.4, 0.5])
 
-    ddpg_params = ddpg_agent.NNParams(
+    ddpg_params = ddpg_agent.NN_Params(
         in_actor=in_actor_size,
         hidden_in_actor=hidden_in_actor,
         hidden_out_actor=hidden_out_actor,

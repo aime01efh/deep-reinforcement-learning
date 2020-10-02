@@ -7,6 +7,7 @@ from utilities import hard_update  # , gumbel_softmax, onehot_from_logits
 from torch.optim import Adam
 
 import torch
+
 # import numpy as np
 
 # add OU noise for exploration
@@ -16,7 +17,7 @@ from OUNoise import OUNoise
 WEIGHT_DECAY = 0
 
 
-class NNParams(NamedTuple):
+class NN_Params(NamedTuple):
     in_actor: int
     hidden_in_actor: int
     hidden_out_actor: int
@@ -45,7 +46,7 @@ class DDPGAgent:
     their actor networks and their critic networks ignored.
     """
 
-    def __init__(self, p: NNParams):
+    def __init__(self, p: NN_Params):
         self.actor = Network(
             p.in_actor,
             p.hidden_in_actor,
