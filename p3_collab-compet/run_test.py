@@ -25,10 +25,10 @@ in_actor_size = 24
 hidden_in_actor = 256
 hidden_out_actor = 128
 hidden_in_critic = 256
-hidden_out_critic = 128
+hidden_out_critic = 256
 lr_actor = 5e-4
 lr_critic = 1e-3
-dropout = 0.3
+dropout = 0.2
 
 ddpg_params = ddpg_agent.NNParams(
     in_actor=in_actor_size,
@@ -48,7 +48,7 @@ print(ddpg_params)
 batchsize = 512
 episode_length = 512
 update_step_interval = 1
-update_iterations = 5
+update_iterations = 1
 discount_factor = 0.99
 tau = 1e-3
 initial_noise_scale = 5.0
@@ -73,8 +73,8 @@ print(maddpg_params)
 maddpg_agent = maddpg_agent.MADDPG_Agent(
     num_agents=num_agents,
     ddpg_params=ddpg_params,
-    discount_factor=discount_factor,
-    tau=tau,
+    discount_factor=maddpg_params.discount_factor,
+    tau=maddpg_params.tau,
 )
 
 score_history = []
@@ -84,4 +84,5 @@ maddpg_train.train_maddpg(
     maddpg_params=maddpg_params,
     num_episodes=10000,
     score_history=score_history,
+    report_every=100,
 )
