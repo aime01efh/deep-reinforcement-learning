@@ -185,7 +185,7 @@ def run_one_episode(
 
     env_info = env.reset(train_mode=True)[brain_name]
     main_agent.reset_episode()
-    scores = np.zeros(len(main_agent.maddpg_agent))
+    scores = np.zeros(len(main_agent.maddpg_agents))
 
     # obs_full: all observations as returned from env_info, flattened
     # obs: per-agent observations

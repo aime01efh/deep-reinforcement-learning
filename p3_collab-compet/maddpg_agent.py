@@ -17,9 +17,9 @@ class MADDPG_Agent:
 
     def __init__(self, num_agents, ddpg_params, discount_factor, tau):
         # critic input = obs_full + all agent actions
-        self.maddpg_agent: List[DDPGAgent] = []
+        self.maddpg_agents: List[DDPGAgent] = []
         for _ in range(num_agents):
-            self.maddpg_agent.append(DDPGAgent(ddpg_params))
+            self.maddpg_agents.append(DDPGAgent(ddpg_params))
         self.maddpg_critic = DDPGAgent(ddpg_params)
 
         self.discount_factor = discount_factor
@@ -28,18 +28,18 @@ class MADDPG_Agent:
 
     def get_actors(self):
         """get actors of all the agents in the MADDPG object"""
-        actors = [ddpg_agent.actor for ddpg_agent in self.maddpg_agent]
+        actors = [ddpg_agent.actor for ddpg_agent in self.maddpg_agents]
         return actors
 
     def get_target_actors(self):
         """get target_actors of all the agents in the MADDPG object"""
-        target_actors = [ddpg_agent.target_actor for ddpg_agent in self.maddpg_agent]
+        target_actors = [ddpg_agent.target_actor for ddpg_agent in self.maddpg_agents]
         return target_actors
 
     def set_train_mode(self, train_mode=True):
         """Enabled or disable training mode for all agents
         """
-        for agent in self.maddpg_agent:
+        for agent in self.maddpg_agents:
             agent.actor.train(train_mode)
             agent.critic.train(train_mode)
 
@@ -51,7 +51,7 @@ class MADDPG_Agent:
             self.set_train_mode(False)
             actions = [
                 agent.act(obs, noise)
-                for agent, obs in zip(self.maddpg_agent, obs_all_agents)
+                for agent, obs in zip(self.maddpg_agents, obs_all_agents)
             ]
             self.set_train_mode(True)
         return actions
@@ -64,19 +64,25 @@ class MADDPG_Agent:
             self.set_train_mode(False)
             target_actions = [
                 ddpg_agent.target_act(obs, noise)
-                for ddpg_agent, obs in zip(self.maddpg_agent, obs_all_agents)
+                for ddpg_agent, obs in zip(self.maddpg_agents, obs_all_agents)
             ]
             self.set_train_mode(True)
         return target_actions
 
     def reset_episode(self):
         """Reset DDPG agents to begin an episode"""
-        for agent in self.maddpg_agent:
+        for agent in self.maddpg_agents:
             agent.reset()
         self.maddpg_critic.reset()  # not actually needed
 
     def update(self, samples, logger):
         """update the critics and actors of all the agents """
+        for agent_number in range(self.maddpg_agents):
+            self.update_one_agent(agent_number, samples, logger)
+
+    def update_one_agent(self, agent_number, samples, logger):
+        """update the critics and actors of all the agents """
+        agent = self.maddpg_agents[agent_number]
 
         # need to transpose each element of the samples
         # to flip obs[parallel_agent][agent_number] to
@@ -91,11 +97,13 @@ class MADDPG_Agent:
         #     use target actor NN and agent's next_obs to get agent's target_actions
         #   concat next_obs_full and all agent target_actions as critic input
         #   use this critic input with central target critic to get Qnext
-        #   y = sample's reward + discounted Qnext
+        #   y = sample's reward[agent_number] + discounted Qnext[agent_number]
         #
         #   concat obs_full and all agent sample actions as critic input
-        #   use this critic input with central local critic to get q
-        #   optimize MSE loss between q and y, updating local critic
+        #   use this critic input with central local critic to get Q
+        #   optimize MSE loss between Q[agent_number] and y, updating local critic
+
+        # TODO detach other agents?
 
         obs_full = torch.stack(obs_full).squeeze(0).to(device)
         next_obs_full = torch.stack(next_obs_full).squeeze(0).to(device)
@@ -113,13 +121,15 @@ class MADDPG_Agent:
         target_critic_input = torch.cat((next_obs_full, target_actions), dim=1).to(
             device
         )
-        q_next = self.maddpg_critic.target_critic(target_critic_input)
+        q_next = self.maddpg_critic.target_critic(target_critic_input)[agent_number]
 
-        y = reward + self.discount_factor * q_next * (1 - done)
+        y = reward[agent_number] + self.discount_factor * q_next * (
+            1 - done[agent_number]
+        )
 
         action = torch.cat(action, dim=1).to(device)
         critic_input = torch.cat((obs_full, action), dim=1)
-        q = self.maddpg_critic.critic(critic_input)
+        q = self.maddpg_critic.critic(critic_input)[agent_number]
 
         critic_loss = F.mse_loss(q, y.detach())
         self.maddpg_critic.critic_optimizer.zero_grad()
@@ -141,40 +151,37 @@ class MADDPG_Agent:
         #     select agent's Q value, negative, use as loss function to optimizer
         #       of agent's local actor NN
 
-        for agent_number, agent in enumerate(self.maddpg_agent):
-            # make input to agent
-            # detach the other agents to save time computing derivative
-            new_actions = []
-            for i, ob in enumerate(obs):
-                this_agent_action = self.maddpg_agent[i].actor(ob.to(device))
-                if i == agent_number:
-                    this_agent_action.detach()
-                new_actions.append(this_agent_action)
-            new_actions = torch.cat(new_actions, dim=1)
+        # make input to agent
+        # detach the other agents to save time computing derivative
+        new_actions = []
+        for i, ob in enumerate(obs):
+            this_agent_action = self.maddpg_agents[i].actor(ob.to(device))
+            if i == agent_number:
+                this_agent_action.detach()
+            new_actions.append(this_agent_action)
+        new_actions = torch.cat(new_actions, dim=1)
 
-            # combine all the actions and observations for input to critic
-            # many of the obs are redundant, and obs[1] contains all useful information already
-            critic_input = torch.cat((obs_full, new_actions), dim=1)
+        # combine all the actions and observations for input to critic
+        # many of the obs are redundant, and obs[1] contains all useful information already
+        critic_input = torch.cat((obs_full, new_actions), dim=1)
 
-            # get the policy gradient for this agent
-            actor_loss = -self.maddpg_critic.critic(critic_input).mean(dim=0)[
-                agent_number
-            ]
-            agent.actor_optimizer.zero_grad()
-            actor_loss.backward()
-            # torch.nn.utils.clip_grad_norm_(agent.actor.parameters(),0.5)
-            agent.actor_optimizer.step()
+        # get the policy gradient for this agent
+        actor_loss = -self.maddpg_critic.critic(critic_input).mean(dim=0)[agent_number]
+        agent.actor_optimizer.zero_grad()
+        actor_loss.backward()
+        # torch.nn.utils.clip_grad_norm_(agent.actor.parameters(),0.5)
+        agent.actor_optimizer.step()
 
-            if logger:
-                logger.add_scalar(
-                    "agent%i/actor_loss" % agent_number,
-                    actor_loss.cpu().detach().item(),
-                    self.iter,
-                )
+        if logger:
+            logger.add_scalar(
+                "agent%i/actor_loss" % agent_number,
+                actor_loss.cpu().detach().item(),
+                self.iter,
+            )
 
     def update_targets(self):
         """soft update targets"""
         self.iter += 1
-        for ddpg_agent in self.maddpg_agent:
+        for ddpg_agent in self.maddpg_agents:
             soft_update(ddpg_agent.target_actor, ddpg_agent.actor, self.tau)
             soft_update(ddpg_agent.target_critic, ddpg_agent.critic, self.tau)
