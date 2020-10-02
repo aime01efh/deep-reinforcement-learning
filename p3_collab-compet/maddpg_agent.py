@@ -76,18 +76,18 @@ class MADDPG_Agent:
         self.maddpg_critic.reset()  # not actually needed
 
     def update(self, samples, logger):
-        """update the critics and actors of all the agents """
+        """update the critics and actors of all the agents"""
         for agent_number in range(len(self.maddpg_agents)):
             self.update_one_agent(agent_number, samples, logger)
 
     def update_one_agent(self, agent_number, samples, logger):
-        """update the critics and actors of all the agents """
+        """update the critic and actor of one of the agents"""
         agent = self.maddpg_agents[agent_number]
 
         # need to transpose each element of the samples
         # to flip obs[parallel_agent][agent_number] to
         # obs[agent_number][parallel_agent] (remember, only 1 parallel agent)
-        obs, obs_full, action, reward, next_obs, next_obs_full, done = map(
+        obs, obs_full, actions, reward, next_obs, next_obs_full, done = map(
             transpose_to_tensor, samples
         )
 
@@ -97,7 +97,7 @@ class MADDPG_Agent:
         #     use target actor NN and agent's next_obs to get agent's target_actions
         #   concat next_obs_full and all agent target_actions as critic input
         #   use this critic input with central target critic to get Qnext
-        #   y = sample's reward[agent_number] + discounted Qnext[agent_number]
+        #   y = sample_reward[agent_number] + (discount * Qnext[agent_number])
         #
         #   concat obs_full and all agent sample actions as critic input
         #   use this critic input with central local critic to get Q
@@ -127,8 +127,8 @@ class MADDPG_Agent:
             1 - done[agent_number]
         )
 
-        action = torch.cat(action, dim=1).to(device)
-        critic_input = torch.cat((obs_full, action), dim=1)
+        actions = torch.cat(actions, dim=1).to(device)
+        critic_input = torch.cat((obs_full, actions), dim=1)
         q = self.maddpg_critic.critic(critic_input)[agent_number]
 
         critic_loss = F.mse_loss(q, y.detach())
@@ -144,26 +144,20 @@ class MADDPG_Agent:
         # -- update each actor network using policy gradient --
         # for each agent:
         #   for each replay buffer sample (vectorized):
-        #     use local actor NN and agent's obs to get all agents' new actions
-        #       (detach networks of all agents except the one being trained)
-        #     concat obs_full and all agent new actions as critic input
+        #     use local actor NN and agent's obs to get this agent's new actions
+        #     concat obs_full and all agent actions as critic input (replace
+        #       sampled actions with the new actions for this agent)
         #     use this critic input with central local critic to get Q for all agents
         #     select agent's Q value, negative, use as loss function to optimizer
         #       of agent's local actor NN
 
-        # make input to agent
-        # detach the other agents to save time computing derivative
-        new_actions = []
-        for i, ob in enumerate(obs):
-            this_agent_action = self.maddpg_agents[i].actor(ob.to(device))
-            if i == agent_number:
-                this_agent_action.detach()
-            new_actions.append(this_agent_action)
-        new_actions = torch.cat(new_actions, dim=1)
+        update_actions = actions[:]  # make a copy
+        update_actions[agent_number] = agent.actor(obs[agent_number].to(device))
+        update_actions = torch.cat(update_actions, dim=1)
 
         # combine all the actions and observations for input to critic
         # many of the obs are redundant, and obs[1] contains all useful information already
-        critic_input = torch.cat((obs_full, new_actions), dim=1)
+        critic_input = torch.cat((obs_full, update_actions), dim=1)
 
         # get the policy gradient for this agent
         actor_loss = -self.maddpg_critic.critic(critic_input).mean(dim=0)[agent_number]
