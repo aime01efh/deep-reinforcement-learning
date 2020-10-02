@@ -92,7 +92,7 @@ class MADDPG_Agent:
         )
 
         # -- update the central critic network --
-        # for each replay buffer sample (vectorized):
+        # for each replay buffer sample (vectorized across the minibatch):
         #   for each agent:
         #     use target actor NN and agent's next_obs to get agent's target_actions
         #   concat next_obs_full and all agent target_actions as critic input
@@ -100,7 +100,7 @@ class MADDPG_Agent:
         #   y = sample_reward[agent_number] + (discount * Qnext[agent_number])
         #
         #   concat obs_full and all agent sample actions as critic input
-        #   use this critic input with central local critic to get Q
+        #   use this critic input with central local critic to get Q (len num_agents)
         #   optimize MSE loss between Q[agent_number] and y, updating local critic
 
         # TODO detach other agents?
@@ -141,22 +141,20 @@ class MADDPG_Agent:
         if logger:
             logger.add_scalar("critic_loss", critic_loss, self.iter)
 
-        # -- update each actor network using policy gradient --
-        # for each agent:
-        #   for each replay buffer sample (vectorized):
-        #     use local actor NN and agent's obs to get this agent's new actions
-        #     concat obs_full and all agent actions as critic input (replace
-        #       sampled actions with the new actions for this agent)
-        #     use this critic input with central local critic to get Q for all agents
-        #     select agent's Q value, negative, use as loss function to optimizer
-        #       of agent's local actor NN
+        # -- update the agent's actor network using policy gradient --
+        # for each replay buffer sample (vectorized across the minibatch):
+        #   use local actor NN and agent's obs to get this agent's new actions
+        #   concat obs_full and all agent actions as critic input (for this
+        #     agent, replace sampled actions with the new actions)
+        #   use this critic input with central local critic to get Q (len num_agents)
+        #   select agent's Q value, negatize it, use as loss function to optimizer
+        #     of agent's local actor NN
 
         update_actions = [x.to(device) for x in actions]  # make a copy
         update_actions[agent_number] = agent.actor(obs[agent_number].to(device))
         update_actions = torch.cat(update_actions, dim=1)
 
         # combine all the actions and observations for input to critic
-        # many of the obs are redundant, and obs[1] contains all useful information already
         critic_input = torch.cat((obs_full, update_actions), dim=1)
 
         # get the policy gradient for this agent
