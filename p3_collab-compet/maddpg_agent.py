@@ -127,8 +127,8 @@ class MADDPG_Agent:
             1 - done[agent_number]
         )
 
-        actions = torch.cat(actions, dim=1).to(device)
-        critic_input = torch.cat((obs_full, actions), dim=1)
+        local_actions = torch.cat(actions, dim=1).to(device)
+        critic_input = torch.cat((obs_full, local_actions), dim=1)
         q = self.maddpg_critic.critic(critic_input)[agent_number]
 
         critic_loss = F.mse_loss(q, y.detach())
