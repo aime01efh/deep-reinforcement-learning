@@ -151,7 +151,7 @@ class MADDPG_Agent:
         #     select agent's Q value, negative, use as loss function to optimizer
         #       of agent's local actor NN
 
-        update_actions = actions[:]  # make a copy
+        update_actions = [x.to(device) for x in actions]  # make a copy
         update_actions[agent_number] = agent.actor(obs[agent_number].to(device))
         update_actions = torch.cat(update_actions, dim=1)
 
