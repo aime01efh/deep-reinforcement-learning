@@ -50,13 +50,11 @@ def get_train_obs(env_info):
 class NoiseScaler:
     def __init__(self, p: MADDPG_Params):
         self.noise_scale = p.initial_noise_scale
-        self.noise_step_reduce = 1.0 / (
-            p.episode_noise_end * p.episode_length * p.update_iterations
-        )
+        self.noise_reduce_per_episode = 1.0 / p.episode_noise_end
         self.min_noise_scale = p.min_noise_scale
 
     def step(self):
-        self.noise_scale -= self.noise_step_reduce
+        self.noise_scale -= self.noise_reduce_per_episode
         self.noise_scale = max(self.noise_scale, self.min_noise_scale)
 
 
@@ -179,10 +177,9 @@ def run_one_episode(
     p: MADDPG_Params,
     buffer: ReplayBuffer,
     noise_scaler: NoiseScaler,
-    logger,
+    logger: SummaryWriter,
 ):
     """Run one episode, adding steps to the replay buffer"""
-
     brain_name = env.brain_names[0]
 
     env_info = env.reset(train_mode=True)[brain_name]
@@ -193,10 +190,9 @@ def run_one_episode(
     # obs: per-agent observations, each just a copy of obs_full
     obs, obs_full = get_train_obs(env_info)
 
-    obs_t = transpose_to_tensor(obs)
-
     # Run a trajectory, adding steps to the replay buffer and updating networks
     for step_num in range(p.episode_length):
+        obs_t = transpose_to_tensor(obs)
         actions_list = [
             x.squeeze(0) for x in main_agent.act(obs_t, noise_scaler.noise_scale)
         ]
@@ -231,10 +227,12 @@ def run_one_episode(
                 main_agent.update(samples, logger if step_num == 0 else None)
                 # soft update the target network towards the actual networks
                 main_agent.update_targets()
-                noise_scaler.step()
 
         obs = next_obs
+
         if np.any(dones):
             break
+
+    noise_scaler.step()
 
     return scores
