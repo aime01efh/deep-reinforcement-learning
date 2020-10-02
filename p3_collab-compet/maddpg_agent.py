@@ -85,6 +85,8 @@ class MADDPG_Agent:
             transpose_to_tensor, samples
         )
 
+        # update the central critic network
+
         obs_full = torch.stack(obs_full).squeeze(0).to(device)
         next_obs_full = torch.stack(next_obs_full).squeeze(0).to(device)
         reward = torch.cat(
@@ -109,9 +111,7 @@ class MADDPG_Agent:
         critic_input = torch.cat((obs_full, action), dim=1)
         q = self.maddpg_critic.critic(critic_input)
 
-        # huber_loss = torch.nn.SmoothL1Loss()
-        # critic_loss = huber_loss(q, y.detach())
-        critic_loss = F.mse_loss(q, y)
+        critic_loss = F.mse_loss(q, y.detach())
         self.maddpg_critic.critic_optimizer.zero_grad()
         critic_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.maddpg_critic.critic.parameters(), 1.0)
@@ -121,7 +121,7 @@ class MADDPG_Agent:
         if logger:
             logger.add_scalar("critic_loss", critic_loss, self.iter)
 
-        # update actor network using policy gradient
+        # update each actor network using policy gradient
 
         for agent_number, agent in enumerate(self.maddpg_agent):
             # make input to agent

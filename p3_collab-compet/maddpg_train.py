@@ -1,7 +1,7 @@
 from maddpg_agent import MADDPG_Agent
 import os
 from collections import deque
-from typing import NamedTuple
+from typing import NamedTuple, List
 
 from utilities import transpose_to_tensor
 from buffer import ReplayBuffer
@@ -63,12 +63,12 @@ def train_maddpg(
     main_agent: MADDPG_Agent,
     maddpg_params: MADDPG_Params,
     num_episodes: int,
-    score_history=None,
-    score_goal=SCORE_GOAL,
-    random_seed=237,
-    save_interval=1000,
-    report_every=100,
-    progressbar=True,
+    score_history: List[float] = None,
+    score_goal: float = SCORE_GOAL,
+    random_seed: int = 237,
+    save_interval: int = 1000,
+    report_every: int = 100,
+    progressbar: bool = True,
 ):
     """Perform MADDPG agent training
     """
@@ -90,15 +90,16 @@ def train_maddpg(
     replay_buffer = ReplayBuffer(maddpg_params.replay_buffer_len)
     logger = SummaryWriter(log_dir=log_path)
 
+    # Sliding windows of individual agent rewards
     agent_rewards = []
     for _ in range(num_agents):
         agent_rewards.append(deque(maxlen=GOAL_WINDOW_LEN))
 
-    range_iter = range(num_episodes)
+    all_episode_iter = range(num_episodes)
     if progressbar:
-        range_iter = tqdm(range_iter)
+        all_episode_iter = tqdm(all_episode_iter)
 
-    for episode_idx in range_iter:
+    for episode_idx in all_episode_iter:
         scores = run_one_episode(
             env, main_agent, maddpg_params, replay_buffer, noise_scaler, logger
         )
@@ -110,7 +111,7 @@ def train_maddpg(
         for i in range(num_agents):
             agent_rewards[i].append(scores[i])
 
-        # Reporting
+        # Reporting progress
         logger.add_scalar("scores/episode_score", episode_score, episode_idx)
         if (episode_idx + 1) % report_every == 0 or episode_idx == num_episodes - 1:
             log_episode(
@@ -184,10 +185,10 @@ def run_one_episode(
 
     env_info = env.reset(train_mode=True)[brain_name]
     main_agent.reset_episode()
-
     scores = np.zeros(len(main_agent.maddpg_agent))
-    # obs_full: observations as returned from env_info
-    # obs: per-agent observations, each just a copy of obs_full
+
+    # obs_full: all observations as returned from env_info, flattened
+    # obs: per-agent observations
     obs, obs_full = get_train_obs(env_info)
 
     # Run a trajectory, adding steps to the replay buffer and updating networks
@@ -229,6 +230,7 @@ def run_one_episode(
                 main_agent.update_targets()
 
         obs = next_obs
+        obs_full = next_obs_full
 
         if np.any(dones):
             break
