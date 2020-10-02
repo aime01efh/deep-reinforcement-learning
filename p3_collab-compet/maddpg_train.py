@@ -139,9 +139,9 @@ def train_maddpg(
     return score_history
 
 
-def save_model(main_agent, save_dict_list, model_dir, episode_idx):
+def save_model(main_agent: MADDPG_Agent, save_dict_list, model_dir, episode_idx):
     """Save current model parameters"""
-    for agent in main_agent.maddpg_agent:
+    for agent in main_agent.maddpg_agents:
         save_dict = {
             "actor_params": agent.actor.state_dict(),
             "actor_optim_params": agent.actor_optimizer.state_dict(),
