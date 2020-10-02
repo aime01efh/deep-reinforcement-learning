@@ -90,6 +90,14 @@ class MADDPG_Agent:
         obs, obs_full, actions, reward, next_obs, next_obs_full, done = map(
             transpose_to_tensor, samples
         )
+        obs_full = torch.stack(obs_full).squeeze(0).to(device)
+        next_obs_full = torch.stack(next_obs_full).squeeze(0).to(device)
+        reward = torch.cat(
+            [torch.unsqueeze(x, 0) for x in transpose_to_tensor(reward)], dim=0
+        ).to(device)
+        done = torch.cat(
+            [torch.unsqueeze(x, 0) for x in transpose_to_tensor(done)], dim=0
+        ).to(device)
 
         # -- update the central critic network --
         # for each replay buffer sample (vectorized across the minibatch):
@@ -104,15 +112,6 @@ class MADDPG_Agent:
         #   optimize MSE loss between Q[agent_number] and y, updating local critic
 
         # TODO detach other agents?
-
-        obs_full = torch.stack(obs_full).squeeze(0).to(device)
-        next_obs_full = torch.stack(next_obs_full).squeeze(0).to(device)
-        reward = torch.cat(
-            [torch.unsqueeze(x, 0) for x in transpose_to_tensor(reward)], dim=0
-        ).to(device)
-        done = torch.cat(
-            [torch.unsqueeze(x, 0) for x in transpose_to_tensor(done)], dim=0
-        ).to(device)
 
         # critic loss = batch mean of (y- Q(s,a) from target network)^2
         # y = reward of this timestep + discount * Q(st+1,at+1) from target network
