@@ -77,7 +77,7 @@ class MADDPG_Agent:
 
     def update(self, samples, logger):
         """update the critics and actors of all the agents """
-        for agent_number in range(self.maddpg_agents):
+        for agent_number in range(len(self.maddpg_agents)):
             self.update_one_agent(agent_number, samples, logger)
 
     def update_one_agent(self, agent_number, samples, logger):
