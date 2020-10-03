@@ -153,10 +153,6 @@ class MADDPG_Agent:
         torch.nn.utils.clip_grad_norm_(agent.critic.parameters(), 1.0)
         agent.critic_optimizer.step()
 
-        critic_loss = critic_loss.cpu().detach().item()
-        if logger:
-            logger.add_scalar("critic_loss", critic_loss, self.iter)
-
         # -- UPDATE THE AGENT'S ACTOR NETWORK USING POLICY GRADIENT --
         # for each replay buffer sample (vectorized across the batch):
         #   use local actor NN and agent's obs to get this agent's new actions
@@ -180,9 +176,11 @@ class MADDPG_Agent:
         agent.actor_optimizer.step()
 
         if logger:
-            logger.add_scalar(
-                "agent%i/actor_loss" % agent_number,
-                actor_loss.cpu().detach().item(),
+            al = actor_loss.cpu().detach().item()
+            cl = critic_loss.cpu().detach().item()
+            logger.add_scalars(
+                "agent%i/losses" % agent_number,
+                {"critic loss": cl, "actor_loss": al},
                 self.iter,
             )
 
