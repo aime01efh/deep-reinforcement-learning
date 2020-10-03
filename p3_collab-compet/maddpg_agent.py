@@ -22,7 +22,6 @@ class MADDPG_Agent:
         self.maddpg_agents: List[DDPGAgent] = []
         for _ in range(num_agents):
             self.maddpg_agents.append(DDPGAgent(ddpg_params))
-        self.maddpg_critic = DDPGAgent(ddpg_params)
 
         self.discount_factor = discount_factor
         self.tau = tau
@@ -75,7 +74,6 @@ class MADDPG_Agent:
         """Reset DDPG agents to begin an episode"""
         for agent in self.maddpg_agents:
             agent.reset()
-        self.maddpg_critic.reset()  # not actually needed
 
     def update(
         self, buffer: ReplayBuffer, batchsize: int, logger: Optional[SummaryWriter]
@@ -118,17 +116,17 @@ class MADDPG_Agent:
         #
         # next_obs and next_obs_full with same structure as obs and obs_full above
 
-        # -- UPDATE THE CENTRAL CRITIC NETWORK --
+        # -- UPDATE THE CRITIC NETWORK --
         # for each replay buffer sample (vectorized across the batch):
         #   for each agent:
         #     use target actor NN and agent's next_obs to get agent's target_actions
         #   concat next_obs_full and all agent target_actions as critic input
-        #   use this critic input with central target critic to get Qnext
-        #   y = sample_reward[agent_number] + (discount * Qnext[agent_number])
+        #   use this critic input with agent's target critic to get Qnext
+        #   y = sample_reward[agent_number] + (discount * Qnext)
         #
         #   concat obs_full and all agent sample actions as critic input
-        #   use this critic input with central local critic to get Q (len num_agents)
-        #   optimize MSE loss between Q[agent_number] and y, updating local critic
+        #   use this critic input with agent's local critic to get Q
+        #   optimize MSE loss between Q and y, updating agent's local critic
 
         # TODO detach other agents?
 
@@ -139,7 +137,7 @@ class MADDPG_Agent:
         target_critic_input = torch.cat((next_obs_full, target_actions), dim=1).to(
             device
         )
-        q_next = self.maddpg_critic.target_critic(target_critic_input)[:, agent_number]
+        q_next = agent.target_critic(target_critic_input).squeeze(-1)
 
         y = reward[:, agent_number] + self.discount_factor * q_next * (
             1 - done[:, agent_number]
@@ -147,13 +145,13 @@ class MADDPG_Agent:
 
         local_actions = torch.cat(actions, dim=1).to(device)
         critic_input = torch.cat((obs_full, local_actions), dim=1)
-        q = self.maddpg_critic.critic(critic_input)[:, agent_number]
+        q = agent.critic(critic_input).squeeze(-1)
 
         critic_loss = F.mse_loss(q, y.detach())
-        self.maddpg_critic.critic_optimizer.zero_grad()
+        agent.critic_optimizer.zero_grad()
         critic_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.maddpg_critic.critic.parameters(), 1.0)
-        self.maddpg_critic.critic_optimizer.step()
+        torch.nn.utils.clip_grad_norm_(agent.critic.parameters(), 1.0)
+        agent.critic_optimizer.step()
 
         critic_loss = critic_loss.cpu().detach().item()
         if logger:
@@ -164,9 +162,8 @@ class MADDPG_Agent:
         #   use local actor NN and agent's obs to get this agent's new actions
         #   concat obs_full and all agent actions as critic input (for this
         #     agent, replace sampled actions with the new actions)
-        #   use this critic input with central local critic to get Q (len num_agents)
-        #   select agent's Q value, negatize it, use as loss function to optimizer
-        #     of agent's local actor NN
+        #   use this critic input with agent's local critic to get Q
+        #   negatize Q to use as loss function to optimizer of agent's local actor NN
 
         update_actions = [x.to(device) for x in actions]  # make a copy
         update_actions[agent_number] = agent.actor(obs[agent_number].to(device))
@@ -176,7 +173,7 @@ class MADDPG_Agent:
         critic_input = torch.cat((obs_full, update_actions), dim=1)
 
         # get the policy gradient for this agent
-        actor_loss = -self.maddpg_critic.critic(critic_input).mean(dim=0)[agent_number]
+        actor_loss = -agent.critic(critic_input).mean(dim=0)
         agent.actor_optimizer.zero_grad()
         actor_loss.backward()
         # torch.nn.utils.clip_grad_norm_(agent.actor.parameters(),0.5)

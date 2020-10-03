@@ -41,7 +41,7 @@ ddpg_params = ddpg_agent.NN_Params(
     hidden_out_critic=hidden_out_critic,
     lr_actor=lr_actor,
     lr_critic=lr_critic,
-    out_critic=num_agents,
+    out_critic=1,
     dropout=dropout,
     ou_sigma=0.2,
 )
