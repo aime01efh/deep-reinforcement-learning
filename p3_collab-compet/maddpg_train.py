@@ -225,10 +225,9 @@ def run_one_episode(
         # update agents update_iterations times after every update_step_interval steps
         if len(buffer) > p.batchsize and step_num % p.update_step_interval == 0:
             for _ in range(p.update_iterations):
-                samples = buffer.sample(p.batchsize)
                 # samples is a 7-element list: sample transitions from the replay
                 # buffer, transposed
-                main_agent.update(samples, logger if step_num % 50 == 0 else None)
+                main_agent.update(buffer, p.batchsize, logger if step_num % 50 == 0 else None)
                 # soft update the target network towards the actual networks
                 main_agent.update_targets()
 

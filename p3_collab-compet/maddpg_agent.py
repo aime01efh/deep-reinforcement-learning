@@ -75,9 +75,10 @@ class MADDPG_Agent:
             agent.reset()
         self.maddpg_critic.reset()  # not actually needed
 
-    def update(self, samples, logger):
+    def update(self, buffer, batchsize, logger):
         """update the critics and actors of all the agents"""
         for agent_number in range(len(self.maddpg_agents)):
+            samples = buffer.sample(batchsize)
             self.update_one_agent(agent_number, samples, logger)
 
     def update_one_agent(self, agent_number, samples, logger):
