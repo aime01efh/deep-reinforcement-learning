@@ -180,7 +180,8 @@ def run_one_episode(
     noise_scaler: NoiseScaler,
     logger: SummaryWriter,
 ):
-    """Run one episode, adding steps to the replay buffer"""
+    """Run one episode, adding steps to the replay buffer, and performing updates
+    """
     brain_name = env.brain_names[0]
 
     env_info = env.reset(train_mode=True)[brain_name]
@@ -227,7 +228,9 @@ def run_one_episode(
             for _ in range(p.update_iterations):
                 # samples is a 7-element list: sample transitions from the replay
                 # buffer, transposed
-                main_agent.update(buffer, p.batchsize, logger if step_num % 50 == 0 else None)
+                main_agent.update(
+                    buffer, p.batchsize, logger if step_num % 50 == 0 else None
+                )
                 # soft update the target network towards the actual networks
                 main_agent.update_targets()
 

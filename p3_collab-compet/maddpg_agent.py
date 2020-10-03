@@ -3,7 +3,7 @@
 # see ddpg.py for other details in the network
 from tensorboardX.writer import SummaryWriter
 from buffer import ReplayBuffer
-from typing import List
+from typing import List, Optional
 from ddpg_agent import DDPGAgent, device
 import torch
 import torch.nn.functional as F
@@ -77,13 +77,17 @@ class MADDPG_Agent:
             agent.reset()
         self.maddpg_critic.reset()  # not actually needed
 
-    def update(self, buffer: ReplayBuffer, batchsize: int, logger: SummaryWriter):
+    def update(
+        self, buffer: ReplayBuffer, batchsize: int, logger: Optional[SummaryWriter]
+    ):
         """update the critics and actors of all the agents"""
         for agent_number in range(len(self.maddpg_agents)):
             samples = buffer.sample(batchsize)
             self.update_one_agent(agent_number, samples, logger)
 
-    def update_one_agent(self, agent_number, samples, logger):
+    def update_one_agent(
+        self, agent_number: ReplayBuffer, samples: List, logger: Optional[SummaryWriter]
+    ):
         """update the critic and actor of one of the agents"""
         agent = self.maddpg_agents[agent_number]
 
@@ -93,6 +97,8 @@ class MADDPG_Agent:
         obs, obs_full, actions, reward, next_obs, next_obs_full, done = map(
             transpose_to_tensor, samples
         )
+
+        # -- REFORMAT THE BATCH OF SAMPLES --
         obs_full = torch.stack(obs_full).squeeze(0).to(device)
         next_obs_full = torch.stack(next_obs_full).squeeze(0).to(device)
         reward = torch.cat(
@@ -101,9 +107,19 @@ class MADDPG_Agent:
         done = torch.cat(
             [torch.unsqueeze(x, 0) for x in transpose_to_tensor(done)], dim=0
         ).to(device)
+        # Now we have the batch of samples split out as follows:
+        # 2-element lists, one element for each agent:
+        #     obs: per-agent observation tensors (batchsize x 24 observed variables)
+        #     actions: per-agent action tensors (batchsize x 2 actions)
+        #     done: per-agent "done" tensors (batchsize, values either 0.0 or 1.0)
+        # obs_full: combined observations from all agents as a tensor (batchsize x 48),
+        #           each row the concatenation of the corresponding values from "obs"
+        # rewards: sample rewards as a tensor (batchsize x 2 agents)
+        #
+        # next_obs and next_obs_full with same structure as obs and obs_full above
 
-        # -- update the central critic network --
-        # for each replay buffer sample (vectorized across the minibatch):
+        # -- UPDATE THE CENTRAL CRITIC NETWORK --
+        # for each replay buffer sample (vectorized across the batch):
         #   for each agent:
         #     use target actor NN and agent's next_obs to get agent's target_actions
         #   concat next_obs_full and all agent target_actions as critic input
@@ -143,8 +159,8 @@ class MADDPG_Agent:
         if logger:
             logger.add_scalar("critic_loss", critic_loss, self.iter)
 
-        # -- update the agent's actor network using policy gradient --
-        # for each replay buffer sample (vectorized across the minibatch):
+        # -- UPDATE THE AGENT'S ACTOR NETWORK USING POLICY GRADIENT --
+        # for each replay buffer sample (vectorized across the batch):
         #   use local actor NN and agent's obs to get this agent's new actions
         #   concat obs_full and all agent actions as critic input (for this
         #     agent, replace sampled actions with the new actions)
