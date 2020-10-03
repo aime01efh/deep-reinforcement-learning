@@ -1,6 +1,8 @@
 # main code that contains the neural network setup
 # policy + critic updates
 # see ddpg.py for other details in the network
+from tensorboardX.writer import SummaryWriter
+from buffer import ReplayBuffer
 from typing import List
 from ddpg_agent import DDPGAgent, device
 import torch
@@ -75,7 +77,7 @@ class MADDPG_Agent:
             agent.reset()
         self.maddpg_critic.reset()  # not actually needed
 
-    def update(self, buffer, batchsize, logger):
+    def update(self, buffer: ReplayBuffer, batchsize: int, logger: SummaryWriter):
         """update the critics and actors of all the agents"""
         for agent_number in range(len(self.maddpg_agents)):
             samples = buffer.sample(batchsize)
