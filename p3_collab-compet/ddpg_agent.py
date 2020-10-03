@@ -29,6 +29,7 @@ class NN_Params(NamedTuple):
     lr_critic: float
     out_critic: int
     dropout: float
+    ou_sigma: float
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -78,7 +79,7 @@ class DDPGAgent:
             p.dropout,
         ).to(device)
 
-        self.noise = OUNoise(p.out_actor, scale=1.0)
+        self.noise = OUNoise(p.out_actor, scale=1.0, sigma=p.ou_sigma)
 
         # initialize targets same as original networks
         hard_update(self.target_actor, self.actor)

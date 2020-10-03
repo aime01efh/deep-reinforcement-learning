@@ -29,6 +29,7 @@ hidden_out_critic = 256
 lr_actor = 5e-4
 lr_critic = 1e-3
 dropout = 0.2
+ou_sigma = 0.2
 
 ddpg_params = ddpg_agent.NN_Params(
     in_actor=in_actor_size,
@@ -42,6 +43,7 @@ ddpg_params = ddpg_agent.NN_Params(
     lr_critic=lr_critic,
     out_critic=num_agents,
     dropout=dropout,
+    ou_sigma=0.2,
 )
 print(ddpg_params)
 
@@ -51,7 +53,7 @@ update_step_interval = 1
 update_iterations = 1
 discount_factor = 0.99
 tau = 1e-3
-initial_noise_scale = 5.0
+initial_noise_scale = 1.0
 min_noise_scale = 0.0
 episode_noise_end = 300
 replay_buffer_len = 1_000_000
