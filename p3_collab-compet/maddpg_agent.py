@@ -120,15 +120,15 @@ class MADDPG_Agent:
         target_critic_input = torch.cat((next_obs_full, target_actions), dim=1).to(
             device
         )
-        q_next = self.maddpg_critic.target_critic(target_critic_input)[agent_number]
+        q_next = self.maddpg_critic.target_critic(target_critic_input)[:, agent_number]
 
-        y = reward[agent_number] + self.discount_factor * q_next * (
-            1 - done[agent_number]
+        y = reward[:, agent_number] + self.discount_factor * q_next * (
+            1 - done[:, agent_number]
         )
 
         local_actions = torch.cat(actions, dim=1).to(device)
         critic_input = torch.cat((obs_full, local_actions), dim=1)
-        q = self.maddpg_critic.critic(critic_input)[agent_number]
+        q = self.maddpg_critic.critic(critic_input)[:, agent_number]
 
         critic_loss = F.mse_loss(q, y.detach())
         self.maddpg_critic.critic_optimizer.zero_grad()
