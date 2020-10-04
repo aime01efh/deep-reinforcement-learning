@@ -136,6 +136,8 @@ def train_maddpg(
                     episode_idx - GOAL_WINDOW_LEN, np.mean(scores_window)
                 )
             )
+            save_dict_list = []
+            save_model(main_agent, save_dict_list, model_dir, episode_idx)
             break
 
     env.close()
@@ -152,12 +154,34 @@ def save_model(main_agent: MADDPG_Agent, save_dict_list, model_dir, episode_idx)
             "actor_optim_params": agent.actor_optimizer.state_dict(),
             "critic_params": agent.critic.state_dict(),
             "critic_optim_params": agent.critic_optimizer.state_dict(),
+            "target_actor_params": agent.target_actor.state_dict(),
+            "target_actor_optim_params": agent.actor_optimizer.state_dict(),
+            "target_critic_params": agent.target_critic.state_dict(),
+            "target_critic_optim_params": agent.target_critic_optimizer.state_dict(),
         }
         save_dict_list.append(save_dict)
 
     torch.save(
         save_dict_list, os.path.join(model_dir, "episode-{}.pt".format(episode_idx)),
     )
+
+
+def load_model(main_agent: MADDPG_Agent, checkpoint_file: str):
+    """Load current model parameters"""
+    checkpoint = torch.load(checkpoint_file)
+    for agent in main_agent.maddpg_agents:
+        agent.actor.load_state_dict(checkpoint["actor_params"])
+        agent.actor_optimizer.load_state_dict(checkpoint["actor_optim_params"])
+        agent.critic.load_state_dict(checkpoint["critic_params"])
+        agent.critic_optimizer.load_state_dict(checkpoint["critic_optim_params"])
+        agent.target_actor.load_state_dict(checkpoint["target_actor_params"])
+        agent.target_actor_optimizer.load_state_dict(
+            checkpoint["target_actor_optim_params"]
+        )
+        agent.target_critic.load_state_dict(checkpoint["target_critic_params"])
+        agent.target_critic_optimizer.load_state_dict(
+            checkpoint["target_critic_optim_params"]
+        )
 
 
 def log_episode(logger, scores_window, episode_idx, agent_rewards, episode_score):
