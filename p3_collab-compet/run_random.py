@@ -31,7 +31,7 @@ hidden_out_critic = random.choice([256, 512])
 lr_actor = random.choice([1e-5, 1e-4, 1e-3])
 lr_critic = random.choice([1e-5, 1e-4, 1e-3])
 dropout = random.choice([0.1, 0.2, 0.3, 0.4])
-ou_sigma = random.choice([0.1, 0.2, 0.3])
+ou_sigma = random.choice([0.2, 0.3, 1.0])
 
 ddpg_params = ddpg_agent.NN_Params(
     in_actor=in_actor_size,
