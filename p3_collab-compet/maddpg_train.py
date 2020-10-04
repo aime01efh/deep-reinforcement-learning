@@ -100,6 +100,11 @@ def train_maddpg(
         all_episode_iter = tqdm(all_episode_iter)
 
     for episode_idx in all_episode_iter:
+        logger.add_scalar(
+            "noise_level",
+            noise_scaler.noise_scale * main_agent.maddpg_agents[0].noise.sigma,
+            episode_idx,
+        )
         scores = run_one_episode(
             env, main_agent, maddpg_params, replay_buffer, noise_scaler, logger
         )

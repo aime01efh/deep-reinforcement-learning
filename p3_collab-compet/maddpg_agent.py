@@ -1,6 +1,7 @@
 # main code that contains the neural network setup
 # policy + critic updates
 # see ddpg.py for other details in the network
+import numpy as np
 from tensorboardX.writer import SummaryWriter
 from buffer import ReplayBuffer
 from typing import List, Optional
@@ -181,6 +182,14 @@ class MADDPG_Agent:
             logger.add_scalars(
                 "agent%i/losses" % agent_number,
                 {"critic loss": cl, "actor_loss": al},
+                self.iter,
+            )
+            logger.add_scalars(
+                "agent%i/mean_actions" % agent_number,
+                {
+                    "action0": np.mean(actions[agent_number][:, 0].numpy()),
+                    "action1": np.mean(actions[agent_number][:, 1].numpy()),
+                },
                 self.iter,
             )
 
