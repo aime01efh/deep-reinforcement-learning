@@ -26,8 +26,6 @@ class Network(nn.Module):
 
         self.fc1 = nn.Linear(input_dim, hidden_in_dim)
         self.fc2 = nn.Linear(hidden_in_dim, hidden_out_dim)
-        self.fc2bis = nn.Linear(hidden_out_dim, hidden_out_dim)  # for critic
-        self.fc2ter = nn.Linear(hidden_out_dim, hidden_out_dim)  # for critic
         self.fc3 = nn.Linear(hidden_out_dim, output_dim)
         self.nonlin = F.relu  # leaky_relu?
         self.dropout = nn.Dropout(dropout)
@@ -60,9 +58,5 @@ class Network(nn.Module):
             h1 = self.dropout(h1)
             h2 = self.nonlin(self.fc2(h1))
             h2 = self.dropout(h2)
-            # h2bis = self.nonlin(self.fc2bis(h2))
-            # h2bis = self.dropout(h2bis)
-            # h2ter = self.nonlin(self.fc2ter(h2bis))
-            # h2ter = self.dropout(h2ter)
             h3 = self.fc3(h2)
             return h3
