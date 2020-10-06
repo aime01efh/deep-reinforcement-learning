@@ -28,32 +28,33 @@ The environment is considered solved, when the average (over 100 episodes) of th
 0. If not available, download and install Anaconda Python via the miniconda installer which includes the conda environment management tool.
 
 1. Clone the repository (if you haven't already!), and navigate to the `p3_collab-compet/` folder.  Then, create the new drlnd conda environment:
-
 ```bash
 conda env create -f conda_env.yaml
 ```
 
-2. Activate the new conda environment with Python 3.6.
 
+2. Activate the new conda environment with Python 3.6.
 - __Linux__ or __Mac__:
 ```bash
-source activate drlnd
+conda activate drlnd
 ```
 - __Windows__:
 ```bash
 activate drlnd
 ```
 
-3. Fix protobuf in the conda environment with
 
+3. Fix protobuf in the conda environment with
 ```bash
 pip install protobuf==3.6.0
 ```
+
 
 4. Create an [IPython kernel](http://ipython.readthedocs.io/en/stable/install/kernel_install.html) for the `drlnd` environment.
 ```bash
 python -m ipykernel install --user --name drlnd --display-name "drlnd"
 ```
+
 
 5. Download the environment from one of the links below.  You need only select the environment that matches your operating system:
     - Linux: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Linux.zip)
@@ -61,8 +62,9 @@ python -m ipykernel install --user --name drlnd --display-name "drlnd"
     - Windows (32-bit): [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Windows_x86.zip)
     - Windows (64-bit): [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Windows_x86_64.zip)
 
+
 6. Place the file in the DRLND GitHub repository, in the `p3_collab-compet/` folder, and unzip (or decompress) the file.
 
 ### Instructions
 
-Open the `Tennis.ipynb` notebook and execute all cells after **"4. It's Your Turn!"**. This will train the agent, save the resulting model parameters, and display the plot of rewards vs time.
+Open the `Tennis.ipynb` notebook using the drlnd kernel and execute all cells after **"4. It's Your Turn!"**. This will train the agent, save the resulting model parameters, and display the plot of rewards vs time.
